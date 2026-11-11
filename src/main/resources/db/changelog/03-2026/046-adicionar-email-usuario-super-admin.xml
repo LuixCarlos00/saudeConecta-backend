@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="046-001-adicionar-coluna-email-usuarios" author="equipe-sentinela">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="usuarios" columnName="email"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="usuarios">
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="046-002-setar-email-super-admin" author="equipe-sentinela">
+        <!-- Login e e-mail do ROOT vêm de ROOT_LOGIN / ROOT_EMAIL; ANY preserva os bancos que já rodaram a versão antiga -->
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <sqlCheck expectedResult="1">SELECT CASE WHEN LENGTH('${root.email}') > 0 THEN 1 ELSE 0 END</sqlCheck>
+                <sqlCheck expectedResult="1">SELECT COUNT(*) FROM usuarios WHERE login = '${root.login}'</sqlCheck>
+            </and>
+        </preConditions>
+        <update tableName="usuarios">
+            <column name="email" value="${root.email}"/>
+            <where>login = '${root.login}'</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>

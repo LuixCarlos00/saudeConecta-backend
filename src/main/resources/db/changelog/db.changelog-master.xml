@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Tabelas Base -->
+    <include file="db/changelog/01_changes/001-create-table-usuarios.xml"/>
+    <include file="db/changelog/01_changes/002-create-table-endereco.xml"/>
+    <include file="db/changelog/01_changes/004-create-table-paciente.xml"/>
+
+    <!-- Multi-Tenant -->
+    <include file="db/changelog/01_changes/011-criar-tabelas-multi-tenant.xml"/>
+    <include file="db/changelog/01_changes/012-dados-iniciais-multi-tenant.xml"/>
+    <include file="db/changelog/01_changes/013-atualizar-tabela-usuarios.xml"/>
+    <include file="db/changelog/01_changes/014-criar-tabela-profissional.xml"/>
+    <include file="db/changelog/01_changes/015-criar-consulta-v2.xml"/>
+    
+    <!-- Prontuario (depende de profissional e consulta) -->
+    <include file="db/changelog/01_changes/09-create-table-prontuario.xml"/>
+    
+    <!-- Atualizar Paciente com tenant -->
+    <include file="db/changelog/01_changes/016-adicionar-organizacao-paciente.xml"/>
+    
+    <!-- Tabela Secretaria -->
+    <include file="db/changelog/01_changes/018-criar-tabela-secretaria.xml"/>
+    
+    <!-- Atualizar Status Usuario para VARCHAR -->
+    <include file="db/changelog/01_changes/019-alterar-status-usuarios-varchar.xml"/>
+    
+    <!-- Configuração de Gráficos do Dashboard -->
+    <include file="db/changelog/01_changes/020-criar-tabela-configuracao-grafico-dashboard.xml"/>
+
+    <!-- Sistema de Mensageria -->
+     <include file="db/changelog/01_changes/021-criar-tabela-mensageria.xml"/>
+
+    <!-- Histórico de Dados Pessoais -->
+    <include file="db/changelog/01_changes/022-create-historico-dados-pessoais.xml"/>
+
+    <!-- Prontuario Dentista -->
+    <include file="db/changelog/01_changes/023-create-prontuario-dentista.xml"/>
+
+    <!-- Dados iniciais de produção -->
+    <include file="db/changelog/01_changes/024-dados-iniciais-producao.xml"/>
+
+    <!-- Configuração de Cards do Dashboard -->
+    <include file="db/changelog/01_changes/025-criar-tabela-configuracao-card-dashboard.xml"/>
+
+    <!-- Prontuário Odontológico: Termo, Procedimentos, Planejamento -->
+    <include file="db/changelog/01_changes/026-criar-tabelas-prontuario-odontologico.xml"/>
+
+    <!-- Planos, Assinaturas e Cobranças -->
+    <include file="db/changelog/01_changes/027-criar-tabelas-planos-assinaturas.xml"/>
+
+    <!-- Plano personalizado por tenant (limites custom + valor adicional) -->
+    <include file="db/changelog/01_changes/028-plano-personalizado-por-tenant.xml"/>
+
+    <!-- Corrigir ordem de exibição dos gráficos do dashboard -->
+    <include file="db/changelog/01_changes/029-corrigir-ordem-graficos-dashboard.xml"/>
+
+    <!-- Remover coluna duplicada prontdent_oclusao -->
+    <include file="db/changelog/01_changes/030-remover-coluna-prontdent-oclusao.xml"/>
+
+    <!-- Atualizar credenciais do super admin (login CPF + nova senha) -->
+    <include file="db/changelog/01_changes/031-atualizar-credenciais-super-admin.xml"/>
+
+    <!-- Mensageria: FK profissional → coluna genérica destinatario_entidade_id -->
+    <include file="db/changelog/03-2026/032-alterar-mensageria-entidade-generica.xml"/>
+
+    <!-- Adicionar coluna ip_origem na tabela planejamento_terapeutico -->
+    <include file="db/changelog/03-2026/033-adicionar-ip-origem-planejamento-terapeutico.xml"/>
+
+    <!-- Adicionar novos campos ao prontuário médico (paridade com odontológico) -->
+    <include file="db/changelog/03-2026/034-adicionar-campos-prontuario-medico.xml"/>
+
+    <!-- Alterar planejamento terapêutico para suportar prontuário médico e dentista -->
+    <include file="db/changelog/03-2026/03-2026-alterar-planejamento-terapeutico.xml"/>
+
+    <!-- Remover colunas obsoletas do prontuário -->
+    <include file="db/changelog/03-2026/035-remover-colunas-obsoletas-prontuario.xml"/>
+
+    <!-- Remover colunas de tratamento do prontuario dentista -->
+    <include file="db/changelog/03-2026/036-remover-colunas-tratamento-prontuario-dentista.xml"/>
+
+    <!-- Indices compostos para otimizar queries do dashboard -->
+    <include file="db/changelog/03-2026/037-indices-dashboard-consulta.xml"/>
+
+    <!-- Indice composto (usuario_id, ativo, ordem_exibicao) para endpoint de cards ativos do dashboard -->
+    <include file="db/changelog/03-2026/038-indice-configuracao-card-dashboard.xml"/>
+
+    <!-- Indice composto (usuario_id, ativo, ordem_exibicao) para endpoint de graficos ativos do dashboard -->
+    <include file="db/changelog/03-2026/039-indice-configuracao-grafico-dashboard.xml"/>
+
+    <!-- Indice (organizacao_id, data_hora) para endpoint GET /consultas/organizacao/{id}/intervalo -->
+    <include file="db/changelog/03-2026/040-indice-consulta-organizacao-intervalo.xml"/>
+
+    <!-- Indices (organizacao_id, data_criacao) e (organizacao_id, admin_notificado, status) para GET /mensageria -->
+    <include file="db/changelog/03-2026/041-indice-mensageria-organizacao-data-criacao.xml"/>
+
+    <!-- Indice unico em consulta_id para findByConsultaId em tb_termo_autorizacao (GET /prontuario-dentista/questionario-saude/{id}) -->
+    <include file="db/changelog/03-2026/042-indice-termo-autorizacao-consulta.xml"/>
+
+    <!-- Indice composto (consulta, prontDataFinalizado) para GET /prontuario/consulta/{id}/recente -->
+    <include file="db/changelog/03-2026/043-indice-prontuario-consulta.xml"/>
+
+    <!-- Indices (organizacao_id, paci_status) e (organizacao_id, paci_nome) para GET /pacientes/buscar-todos?filtro=ATIVO -->
+    <include file="db/changelog/03-2026/044-indice-paciente-organizacao-status.xml"/>
+
+    <!-- Covering index (profissional_id, organizacao_id, data_hora, status) para verificarDisponibilidade e cadastrarConsultaByOrg -->
+    <include file="db/changelog/03-2026/045-indice-consulta-disponibilidade.xml"/>
+
+    <!-- Adicionar coluna email na tabela usuarios + setar email do ROOT, apenas para o ROOT-->
+    <include file="db/changelog/03-2026/046-adicionar-email-usuario-super-admin.xml"/>
+
+    <!-- Atualizar valores do enum TipoUsuarioNovo para novos nomes (ROOT, GESTOR, CLINICO, ASSISTENTE) -->
+    <include file="db/changelog/08-2026/048-atualizar-valores-enum-tipo-usuario.xml"/>
+
+    <!-- Remover coluna TipoUsuario (Byte) da tabela usuarios -->
+    <include file="db/changelog/08-2026/049-remover-coluna-tipo-usuario.xml"/>
+
+    <!-- Carga completa de especialidades (Medico CFM, Dentista CFO, Nutricionista CFN) -->
+    <include file="db/changelog/08-2026/050-inserir-especialidades-completas.xml"/>
+
+    <!-- Chamados de suporte (tickets) e anexos de imagem -->
+    <include file="db/changelog/08-2026/051-criar-tabelas-chamado-suporte.xml"/>
+
+    <!-- Alterar coluna descricao para TEXT para suportar JSON de recursos -->
+    <include file="db/changelog/08-2026/052-alterar-coluna-descricao-text.xml"/>
+
+    <!-- Atualizar descrições com formato JSON e recursos -->
+    <include file="db/changelog/08-2026/053-atualizar-descricoes-com-recursos.xml"/>
+
+    <!-- Atualizar valores dos planos (R$149, R$279, R$549) -->
+    <include file="db/changelog/08-2026/054-atualizar-valores-planos.xml"/>
+
+    <!-- Remover especialidades 'Anal' da tabela especialidade -->
+    <include file="db/changelog/08-2026/055-remover-especialidades-anal.xml"/>
+
+    <!-- Criar tabela de configurações de consulta -->
+    <include file="db/changelog/08-2026/056-criar-tabela-configuracoes-consulta.xml"/>
+
+    <!-- Assinaturas automáticas por cartão via Mercado Pago (preapproval + webhooks) -->
+    <include file="db/changelog/08-2026/058-mercado-pago-assinaturas.xml"/>
+
+    <!-- Desativação do Pix estático (preserva txid para histórico) -->
+    <include file="db/changelog/08-2026/059-remover-pix-assinaturas.xml"/>
+
+    <!-- Validade do link publico de assinatura do planejamento terapeutico (coluna nullable) -->
+    <include file="db/changelog/08-2026/060-adicionar-token-expiracao-planejamento-terapeutico.xml"/>
+
+    <!-- Regua de cobranca: data da suspensao, dia ancora do ciclo e reabertura de eventos MP nao finais -->
+    <include file="db/changelog/08-2026/061-regua-cobranca-suspensao-e-dia-cobranca.xml"/>
+
+    <!-- Lock otimista em assinatura_tenant e reprocessamento de webhooks MP com erro -->
+    <include file="db/changelog/08-2026/062-cobranca-versao-e-reprocessamento-webhook.xml"/>
+
+    <!-- Fase 4: motivo do bloqueio, CPF unico por clinica e login unico (condicional a ausencia de duplicados) -->
+    <include file="db/changelog/08-2026/063-seguranca-unicidade-login-cpf-motivo-bloqueio.xml"/>
+
+    <!-- Fase 2 (re-revisao): UNIQUE/indice da fatura MP em cobranca_tenant e marcador de pendencia manual em mp_webhook_evento -->
+    <include file="db/changelog/08-2026/064-cobranca-indice-fatura-e-pendencias-manuais.xml"/>
+
+    <!-- Fase 5.4: trilha de auditoria persistente do acesso do ROOT via senha master -->
+    <include file="db/changelog/08-2026/065-auditoria-acesso-master.xml"/>
+
+    <!-- Rascunho do atendimento: um por consulta, apagado ao finalizar o prontuario -->
+    <include file="db/changelog/08-2026/066-atendimento-rascunho.xml"/>
+
+    <!-- Pagamento da assinatura: preapproval antigo cancelado no MP so depois do commit da troca -->
+    <include file="db/changelog/08-2026/067-assinatura-preapproval-substituido.xml"/>
+
+    <!-- Telas do SUPER_ADMIN: pendencia manual resolvida (quem, quando, observacao) e clinica da pendencia -->
+    <include file="db/changelog/08-2026/068-mp-webhook-evento-pendencia-resolvida.xml"/>
+</databaseChangeLog>
