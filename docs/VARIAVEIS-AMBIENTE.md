@@ -37,6 +37,7 @@ MP_BACK_URL=https://app.exemplo.com.br
 # ===== Opcionais =====
 PORT=8080
 CORS_ALLOWED_ORIGINS=https://app.exemplo.com.br,https://www.exemplo.com.br
+APP_FRONTEND_URL=https://app.exemplo.com.br
 HTTP_CONNECT_TIMEOUT=5s
 HTTP_READ_TIMEOUT=15s
 ```
@@ -95,6 +96,7 @@ Detalhes da integração: [MERCADO-PAGO.md](MERCADO-PAGO.md).
 
 | Variável | Padrão | Observação |
 |---|---|---|
+| `APP_FRONTEND_URL` | `https://docclin.com.br` | Endereço público do front, sem barra no final. Vai no link de redefinição de senha do e-mail (`<url>/#/redefinir-senha?token=...`) |
 | `PORT` | `8080` | Porta da API dentro do container. Use `PORT`, não `SERVER_PORT`: o Dockerfile passa `-Dserver.port=${PORT}`, que tem prioridade |
 | `CORS_ALLOWED_ORIGINS` | `https://saude-conecta-frontend.vercel.app` | URLs do front, separadas por vírgula. Defina se o front não estiver na Vercel |
 | `HTTP_CONNECT_TIMEOUT` | `5s` | Tempo máximo para conectar no Mercado Pago |

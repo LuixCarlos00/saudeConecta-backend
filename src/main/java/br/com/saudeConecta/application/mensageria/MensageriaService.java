@@ -2,6 +2,7 @@ package br.com.saudeConecta.application.mensageria;
 
 import br.com.saudeConecta.config.logging.MascaraLog;
 
+import br.com.saudeConecta.application.exception.BusinessException;
 import br.com.saudeConecta.application.mensageria.dto.MensageriaResponse;
 import br.com.saudeConecta.config.tenant.TenantHelper;
 import br.com.saudeConecta.domain.mensageria.Mensageria;
@@ -20,6 +21,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -130,6 +132,15 @@ public class MensageriaService {
 
         if (orgId != null && !orgId.equals(mensageria.getOrganizacaoId())) {
             throw new IllegalArgumentException("Acesso negado à mensagem: " + mensageriaId);
+        }
+
+        // O corpo do e-mail de redefinição não é guardado (levava o link de uso único): reenviar
+        // mandaria um texto vazio. O caminho certo é a pessoa pedir um link novo.
+        if (mensageria.getTipoMensagem() == TipoMensagem.EMAIL_RECUPERACAO_SENHA) {
+            log.warn("mensageria.reenviar negado motivo=RECUPERACAO_SENHA mensageriaId={}", mensageriaId);
+            throw new BusinessException(
+                    "O e-mail de redefinição de senha não pode ser reenviado. Peça um novo link na tela \"Esqueci minha senha\".",
+                    HttpStatus.UNPROCESSABLE_ENTITY, "REENVIO_NAO_PERMITIDO");
         }
 
         // Buscar email atualizado da entidade de domínio

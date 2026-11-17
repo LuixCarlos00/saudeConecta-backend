@@ -25,6 +25,14 @@ public class EmailMensageriaService {
     private final OrganizacaoRepository organizacaoRepository;
 
     /**
+     * Texto gravado no lugar do HTML do e-mail de redefinição de senha. O HTML leva o link com o
+     * token de uso único, e a tela de mensageria mostra o corpo para qualquer usuário da clínica:
+     * guardar o HTML deixaria um colega pedir a redefinição e copiar o link de lá.
+     */
+    static final String CORPO_OMITIDO_RECUPERACAO =
+            "[Conteúdo omitido: o e-mail de redefinição de senha leva um link de uso único que não fica armazenado.]";
+
+    /**
      * Registra o sucesso de envio de email na mensageria.
      *
      * @param envio      dados do envio (organização, destinatário, assunto, corpo e tipo)
@@ -49,7 +57,7 @@ public class EmailMensageriaService {
                     .destinatarioEmail(email)
                     .destinatarioNome(envio.nome())
                     .assunto(envio.assunto())
-                    .corpoMensagem(envio.corpo())
+                    .corpoMensagem(corpoParaRegistro(envio))
                     .tipoMensagem(tipo)
                     .status(StatusMensagem.ENVIADO)
                     .tentativas(tentativas)
@@ -89,7 +97,7 @@ public class EmailMensageriaService {
                     .destinatarioEmail(email)
                     .destinatarioNome(envio.nome())
                     .assunto(envio.assunto())
-                    .corpoMensagem(envio.corpo())
+                    .corpoMensagem(corpoParaRegistro(envio))
                     .tipoMensagem(tipo)
                     .status(StatusMensagem.FALHOU)
                     .erroDetalhe(erroDetalhe)
@@ -147,6 +155,17 @@ public class EmailMensageriaService {
         } catch (Exception ex) {
             log.error("email.mensageria reenvio.falha falha mensageriaId={} acao=REGISTRO_NAO_ATUALIZADO", mensageriaId, ex);
         }
+    }
+
+    /**
+     * Corpo que vai para a tabela de mensageria: o HTML enviado, exceto no e-mail de redefinição
+     * de senha, que leva um link de uso único e por isso não é armazenado.
+     *
+     * @param envio dados do envio
+     * @return corpo a gravar no registro
+     */
+    static String corpoParaRegistro(RegistroEnvioEmail envio) {
+        return envio.tipo() == TipoMensagem.EMAIL_RECUPERACAO_SENHA ? CORPO_OMITIDO_RECUPERACAO : envio.corpo();
     }
 
     /**

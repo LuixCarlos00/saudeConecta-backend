@@ -1,6 +1,9 @@
 package br.com.saudeConecta.contrato;
 
-import br.com.saudeConecta.application.usuario.HomeService;
+import br.com.saudeConecta.application.auth.RecuperacaoSenhaService;
+import br.com.saudeConecta.application.exception.BusinessException;
+import br.com.saudeConecta.config.web.RateLimiter;
+import br.com.saudeConecta.presentation.controller.auth.HomeController;
 import br.com.saudeConecta.domain.admin.AdminOrganizacao;
 import br.com.saudeConecta.domain.organizacao.Organizacao;
 import br.com.saudeConecta.domain.planos.AssinaturaTenant;
@@ -30,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -43,7 +47,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -81,7 +88,8 @@ class HomeControllerContratoTest {
     @MockBean private ProfissionalRepository profissionalRepository;
     @MockBean private SecretariaRepository secretariaRepository;
     @MockBean private AuditoriaAcessoMasterRepository auditoriaAcessoMasterRepository;
-    @MockBean private HomeService homeService;
+    @MockBean private RecuperacaoSenhaService recuperacaoSenhaService;
+    @MockBean private RateLimiter rateLimiter;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -106,6 +114,7 @@ class HomeControllerContratoTest {
         when(adminOrganizacaoRepository.findByUsuario_Id(42L))
                 .thenReturn(Optional.of(AdminOrganizacao.builder().nome("Ana Gestora").build()));
         assinaturaCom(StatusAssinatura.ATIVA);
+        when(rateLimiter.permitir(anyString(), anyInt())).thenReturn(true);
     }
 
     private void assinaturaCom(StatusAssinatura status) {
@@ -360,20 +369,34 @@ class HomeControllerContratoTest {
                             .content("{\"email\":\"a@b.com\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.message").value(MENSAGEM_RECUPERACAO));
-            verify(homeService).recuperarSenhaPorEmail("a@b.com");
+            verify(recuperacaoSenhaService).solicitar("a@b.com");
         }
 
         @Test
         @DisplayName("E-mail não cadastrado: resposta idêntica (200 e mesma mensagem)")
         void emailNaoCadastrado() throws Exception {
-            doThrow(new HomeService.EmailNaoEncontradoException("Email nao encontrado no sistema"))
-                    .when(homeService).recuperarSenhaPorEmail("x@y.com");
+            when(recuperacaoSenhaService.solicitar("x@y.com")).thenReturn(0);
 
             mockMvc.perform(post("/Home/esqueciMinhaSenha")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"email\":\"x@y.com\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.message").value(MENSAGEM_RECUPERACAO));
+        }
+
+        @Test
+        @DisplayName("Limite de pedidos estourado: mesma resposta 200 genérica, sem gerar link")
+        void limiteEstourado() throws Exception {
+            when(rateLimiter.permitir(startsWith("recuperacao-senha:email:"), anyInt())).thenReturn(false);
+
+            mockMvc.perform(post("/Home/esqueciMinhaSenha")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\" A@B.com \"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value(MENSAGEM_RECUPERACAO));
+            verify(rateLimiter).permitir("recuperacao-senha:email:a@b.com", HomeController.LIMITE_RECUPERACAO_POR_EMAIL);
+            verify(rateLimiter).permitir(startsWith("recuperacao-senha:ip:"), eq(HomeController.LIMITE_RECUPERACAO_POR_IP));
+            verify(recuperacaoSenhaService, never()).solicitar(anyString());
         }
 
         @Test
@@ -384,6 +407,87 @@ class HomeControllerContratoTest {
                             .content("{}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value("Informe o e-mail"));
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /Home/redefinirSenha - link com token (público, sem JWT)")
+    class RedefinirSenha {
+
+        private static final String CORPO_VALIDO = "{\"token\":\"tok\",\"novaSenha\":\"novaSenha123\"}";
+
+        private BusinessException tokenInvalido() {
+            return new BusinessException("Link inválido ou expirado. Solicite uma nova recuperação de senha.",
+                    HttpStatus.BAD_REQUEST, RecuperacaoSenhaService.CODIGO_TOKEN_INVALIDO);
+        }
+
+        @Test
+        @DisplayName("Validar link válido: 200")
+        void validarOk() throws Exception {
+            mockMvc.perform(post("/Home/redefinirSenha/validar")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"token\":\"tok\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Link válido"));
+            verify(recuperacaoSenhaService).validar("tok");
+        }
+
+        @Test
+        @DisplayName("Validar link expirado/usado: 400 com code TOKEN_RECUPERACAO_INVALIDO")
+        void validarInvalido() throws Exception {
+            doThrow(tokenInvalido()).when(recuperacaoSenhaService).validar("tok");
+
+            mockMvc.perform(post("/Home/redefinirSenha/validar")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"token\":\"tok\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(RecuperacaoSenhaService.CODIGO_TOKEN_INVALIDO));
+        }
+
+        @Test
+        @DisplayName("Validar sem token: 400 de validação, sem chamar o service")
+        void validarSemToken() throws Exception {
+            mockMvc.perform(post("/Home/redefinirSenha/validar")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDACAO"));
+            verify(recuperacaoSenhaService, never()).validar(anyString());
+        }
+
+        @Test
+        @DisplayName("Redefinir com link válido: 200 e repassa token e senha")
+        void redefinirOk() throws Exception {
+            mockMvc.perform(post("/Home/redefinirSenha")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(CORPO_VALIDO))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value(not(emptyOrNullString())));
+            verify(recuperacaoSenhaService).redefinir("tok", "novaSenha123");
+        }
+
+        @Test
+        @DisplayName("Redefinir com link inválido: 400 com code TOKEN_RECUPERACAO_INVALIDO")
+        void redefinirTokenInvalido() throws Exception {
+            doThrow(tokenInvalido()).when(recuperacaoSenhaService).redefinir("tok", "novaSenha123");
+
+            mockMvc.perform(post("/Home/redefinirSenha")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(CORPO_VALIDO))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(RecuperacaoSenhaService.CODIGO_TOKEN_INVALIDO));
+        }
+
+        @Test
+        @DisplayName("Redefinir com senha curta (7 caracteres): 400 VALIDACAO em novaSenha, sem chamar o service")
+        void redefinirSenhaCurta() throws Exception {
+            mockMvc.perform(post("/Home/redefinirSenha")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"token\":\"tok\",\"novaSenha\":\"1234567\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDACAO"))
+                    .andExpect(jsonPath("$.errors.novaSenha").exists());
+            verify(recuperacaoSenhaService, never()).redefinir(anyString(), anyString());
         }
     }
 }
