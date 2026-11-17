@@ -7,15 +7,19 @@ import br.com.saudeConecta.application.auth.dto.DadosValidarTokenRecuperacao;
 import br.com.saudeConecta.application.auth.ResultadoLogin;
 import br.com.saudeConecta.application.usuario.dto.DadosLoginUsuario;
 import br.com.saudeConecta.application.usuario.dto.DadosTokenJWT;
+import br.com.saudeConecta.config.logging.MascaraLog;
+import br.com.saudeConecta.config.web.RateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jdk.jfr.Description;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -26,6 +30,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/Home")
 @RequiredArgsConstructor
+@Slf4j
 @Description("Endpoints para autenticação principal do sistema")
 public class HomeController {
 
@@ -33,6 +38,15 @@ public class HomeController {
 
     private final AutenticacaoService autenticacaoService;
     private final RecuperacaoSenhaService recuperacaoSenhaService;
+    private final RateLimiter rateLimiter;
+
+    /**
+     * Pedidos de recuperação por hora. Por IP segura um script disparando contra vários e-mails;
+     * por e-mail impede lotar a caixa da vítima e matar o link dela a cada segundo (cada pedido
+     * novo invalida o anterior).
+     */
+    public static final int LIMITE_RECUPERACAO_POR_IP = 10;
+    public static final int LIMITE_RECUPERACAO_POR_EMAIL = 5;
 
     /** Mesma resposta para e-mail cadastrado ou não: impede descobrir quais e-mails existem. */
     static final String MENSAGEM_RECUPERACAO_GENERICA =
@@ -69,10 +83,23 @@ public class HomeController {
      */
     @PostMapping("/esqueciMinhaSenha")
     @Description("Envia link de redefinição de senha por email. Utilizado em: RecuperaCadastroComponent")
-    public ResponseEntity<Map<String, String>> esqueciMinhaSenha(@RequestBody Map<String, String> dados) {
+    public ResponseEntity<Map<String, String>> esqueciMinhaSenha(@RequestBody Map<String, String> dados,
+                                                                 HttpServletRequest request) {
         String email = dados.get("email");
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(CHAVE_MENSAGEM, "Informe o e-mail"));
+        }
+
+        // getRemoteAddr já é o IP real atrás do proxy (forward-headers-strategy=native)
+        String ip = request.getRemoteAddr();
+        String emailNormalizado = email.trim().toLowerCase(Locale.ROOT);
+        // "&" e não "&&": os dois contadores sobem sempre, senão estourar por IP pararia de contar o e-mail
+        boolean dentroDoLimite = rateLimiter.permitir("recuperacao-senha:ip:" + ip, LIMITE_RECUPERACAO_POR_IP)
+                & rateLimiter.permitir("recuperacao-senha:email:" + emailNormalizado, LIMITE_RECUPERACAO_POR_EMAIL);
+        if (!dentroDoLimite) {
+            // Mesma resposta de sempre: o limite não pode virar um jeito de descobrir e-mails
+            log.warn("auth.senha.recuperar negado motivo=RATE_LIMIT ip={} email={}", ip, MascaraLog.email(emailNormalizado));
+            return ResponseEntity.ok(Map.of(CHAVE_MENSAGEM, MENSAGEM_RECUPERACAO_GENERICA));
         }
 
         recuperacaoSenhaService.solicitar(email);

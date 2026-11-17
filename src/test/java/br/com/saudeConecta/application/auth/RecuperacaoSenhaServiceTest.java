@@ -7,6 +7,7 @@ import br.com.saudeConecta.domain.admin.AdminOrganizacao;
 import br.com.saudeConecta.domain.organizacao.Organizacao;
 import br.com.saudeConecta.domain.profissional.Profissional;
 import br.com.saudeConecta.domain.secretaria.Secretaria;
+import br.com.saudeConecta.domain.usuario.StatusUsuario;
 import br.com.saudeConecta.domain.usuario.TokenRecuperacaoSenha;
 import br.com.saudeConecta.domain.usuario.Usuario;
 import br.com.saudeConecta.infrastructure.persistence.repository.AdminOrganizacaoRepository;
@@ -72,8 +73,9 @@ class RecuperacaoSenhaServiceTest {
 
         Organizacao organizacao = new Organizacao();
         organizacao.setId(4L);
-        admin = Usuario.builder().id(17L).login("11122233344").senha("hashAntigo").organizacao(organizacao).build();
-        root = Usuario.builder().id(1L).login("root").senha("hashRoot").build();
+        admin = Usuario.builder().id(17L).login("11122233344").senha("hashAntigo").organizacao(organizacao)
+                .status(StatusUsuario.ATIVO).build();
+        root = Usuario.builder().id(1L).login("root").senha("hashRoot").status(StatusUsuario.ATIVO).build();
     }
 
     private void semContasNasTabelasDePerfil() {
@@ -93,7 +95,7 @@ class RecuperacaoSenhaServiceTest {
             when(secretariaRepository.findAllByEmail(EMAIL)).thenReturn(List.of());
             when(adminOrganizacaoRepository.findAllByEmail(EMAIL))
                     .thenReturn(List.of(AdminOrganizacao.builder().nome("Ana").usuario(admin).build()));
-            when(usuarioRepository.findByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(Optional.empty());
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of());
 
             int enviados = service.solicitar("  " + EMAIL + " ");
 
@@ -123,7 +125,7 @@ class RecuperacaoSenhaServiceTest {
         @DisplayName("Pedido novo invalida os links pendentes do mesmo usuário antes de gerar outro")
         void invalidaPendentes() {
             semContasNasTabelasDePerfil();
-            when(usuarioRepository.findByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(Optional.of(root));
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of(root));
 
             service.solicitar(EMAIL);
 
@@ -137,7 +139,7 @@ class RecuperacaoSenhaServiceTest {
             when(secretariaRepository.findAllByEmail(EMAIL)).thenReturn(List.of());
             when(adminOrganizacaoRepository.findAllByEmail(EMAIL))
                     .thenReturn(List.of(AdminOrganizacao.builder().nome("Ana").usuario(admin).build()));
-            when(usuarioRepository.findByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(Optional.of(root));
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of(root));
 
             assertThat(service.solicitar(EMAIL)).isEqualTo(2);
 
@@ -156,7 +158,7 @@ class RecuperacaoSenhaServiceTest {
             when(secretariaRepository.findAllByEmail(EMAIL))
                     .thenReturn(List.of(Secretaria.builder().nome("Ana").usuario(admin).build()));
             when(adminOrganizacaoRepository.findAllByEmail(EMAIL)).thenReturn(List.of());
-            when(usuarioRepository.findByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(Optional.empty());
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of());
 
             assertThat(service.solicitar(EMAIL)).isEqualTo(1);
             verify(emailNotificacaoService, times(1)).enviarLinkRecuperacaoSenha(any());
@@ -169,17 +171,46 @@ class RecuperacaoSenhaServiceTest {
                     .thenReturn(List.of(Profissional.builder().nome("Órfão").build()));
             when(secretariaRepository.findAllByEmail(EMAIL)).thenReturn(List.of());
             when(adminOrganizacaoRepository.findAllByEmail(EMAIL)).thenReturn(List.of());
-            when(usuarioRepository.findByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(Optional.empty());
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of());
 
             assertThat(service.solicitar(EMAIL)).isZero();
             verifyNoInteractions(tokenRepository, emailNotificacaoService);
         }
 
         @Test
+        @DisplayName("Conta inativa/bloqueada não recebe link; a ativa com o mesmo e-mail recebe")
+        void contaInativaIgnorada() {
+            Usuario bloqueado = Usuario.builder().id(30L).login("bloqueado").senha("h").status(StatusUsuario.INATIVO).build();
+            when(profissionalRepository.findAllByEmail(EMAIL))
+                    .thenReturn(List.of(Profissional.builder().nome("Dr. Bloqueado").usuario(bloqueado).build()));
+            when(secretariaRepository.findAllByEmail(EMAIL)).thenReturn(List.of());
+            when(adminOrganizacaoRepository.findAllByEmail(EMAIL)).thenReturn(List.of());
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of(root));
+
+            assertThat(service.solicitar(EMAIL)).isEqualTo(1);
+
+            verify(tokenRepository, never()).invalidarPendentes(eq(30L), any());
+            ArgumentCaptor<DadosEmailRecuperacaoSenha> emailCaptor = ArgumentCaptor.forClass(DadosEmailRecuperacaoSenha.class);
+            verify(emailNotificacaoService).enviarLinkRecuperacaoSenha(emailCaptor.capture());
+            assertThat(emailCaptor.getValue().login()).isEqualTo("root");
+        }
+
+        @Test
+        @DisplayName("Dois usuários de plataforma com o mesmo e-mail: um link para cada, sem erro")
+        void doisUsuariosSemOrganizacao() {
+            Usuario outroRoot = Usuario.builder().id(2L).login("root2").senha("h").status(StatusUsuario.ATIVO).build();
+            semContasNasTabelasDePerfil();
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of(root, outroRoot));
+
+            assertThat(service.solicitar(EMAIL)).isEqualTo(2);
+            verify(emailNotificacaoService, times(2)).enviarLinkRecuperacaoSenha(any());
+        }
+
+        @Test
         @DisplayName("E-mail não cadastrado: não lança, não grava token e não manda e-mail")
         void emailNaoCadastrado() {
             semContasNasTabelasDePerfil();
-            when(usuarioRepository.findByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(Optional.empty());
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of());
 
             assertThat(service.solicitar(EMAIL)).isZero();
             verifyNoInteractions(tokenRepository, emailNotificacaoService);
@@ -189,7 +220,7 @@ class RecuperacaoSenhaServiceTest {
         @DisplayName("ROOT sem nome cadastrado: saudação com o nome padrão")
         void rootNomePadrao() {
             semContasNasTabelasDePerfil();
-            when(usuarioRepository.findByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(Optional.of(root));
+            when(usuarioRepository.findAllByEmailAndOrganizacaoIsNull(EMAIL)).thenReturn(List.of(root));
 
             service.solicitar(EMAIL);
 
@@ -272,6 +303,19 @@ class RecuperacaoSenhaServiceTest {
 
             assertThat(admin.getSenha()).isEqualTo("hashAntigo");
             verify(passwordEncoder, never()).encode(anyString());
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Conta bloqueada depois de o link sair: 400 e a senha não muda")
+        void contaBloqueadaDepoisDoLink() {
+            admin.setStatus(StatusUsuario.INATIVO);
+            when(tokenRepository.findByTokenHashParaUso(anyString()))
+                    .thenReturn(Optional.of(new TokenRecuperacaoSenha(admin, "h", AGORA.minusMinutes(5), AGORA.plusMinutes(25))));
+
+            assertTokenInvalido(() -> service.redefinir("tok", "novaSenha123"));
+
+            assertThat(admin.getSenha()).isEqualTo("hashAntigo");
             verify(usuarioRepository, never()).save(any());
         }
 

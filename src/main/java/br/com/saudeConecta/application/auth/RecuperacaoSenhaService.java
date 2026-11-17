@@ -20,6 +20,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -149,6 +151,10 @@ public class RecuperacaoSenhaService {
                 .orElseThrow(() -> tokenInvalido("REDEFINIR"));
 
         Usuario usuario = registro.getUsuario();
+        if (!usuario.isEnabled()) {
+            // Conta bloqueada depois de o link sair: o link deixa de valer
+            throw tokenInvalido("REDEFINIR_USUARIO_INATIVO");
+        }
         usuario.setSenha(passwordEncoder.encode(novaSenha));
         usuarioRepository.save(usuario);
 
@@ -165,8 +171,7 @@ public class RecuperacaoSenhaService {
         adicionar(contas, profissionalRepository.findAllByEmail(email), Profissional::getUsuario, Profissional::getNome);
         adicionar(contas, secretariaRepository.findAllByEmail(email), Secretaria::getUsuario, Secretaria::getNome);
         adicionar(contas, adminOrganizacaoRepository.findAllByEmail(email), AdminOrganizacao::getUsuario, AdminOrganizacao::getNome);
-        usuarioRepository.findByEmailAndOrganizacaoIsNull(email)
-                .ifPresent(root -> contas.putIfAbsent(root.getId(), new ContaRecuperavel(root, NOME_PADRAO)));
+        adicionar(contas, usuarioRepository.findAllByEmailAndOrganizacaoIsNull(email), Function.identity(), u -> NOME_PADRAO);
         return contas;
     }
 
@@ -174,7 +179,9 @@ public class RecuperacaoSenhaService {
                                Function<T, Usuario> usuarioDe, Function<T, String> nomeDe) {
         for (T registro : registros) {
             Usuario usuario = usuarioDe.apply(registro);
-            if (usuario == null) {
+            // Conta inativa ou bloqueada não recebe link: o login continuaria negado, e trocar a
+            // senha de uma conta desligada só deixaria uma senha esperando uma reativação
+            if (usuario == null || !usuario.isEnabled()) {
                 continue;
             }
             String nome = nomeDe.apply(registro);
@@ -192,11 +199,30 @@ public class RecuperacaoSenhaService {
         tokenRepository.save(new TokenRecuperacaoSenha(usuario, hash(token), agora, agora.plusMinutes(validadeMinutos)));
 
         Long organizacaoId = usuario.getOrganizacao() != null ? usuario.getOrganizacao().getId() : null;
-        emailNotificacaoService.enviarLinkRecuperacaoSenha(new DadosEmailRecuperacaoSenha(
+        DadosEmailRecuperacaoSenha dados = new DadosEmailRecuperacaoSenha(
                 email, conta.nome(), usuario.getLogin(), urlFrontend + CAMINHO_TELA_REDEFINICAO + token,
-                validadeMinutos, organizacaoId));
+                validadeMinutos, organizacaoId);
+        enviarDepoisDoCommit(() -> emailNotificacaoService.enviarLinkRecuperacaoSenha(dados));
 
         log.info("auth.senha.recuperar link gerado usuarioId={} validadeMinutos={}", usuario.getId(), validadeMinutos);
+    }
+
+    /**
+     * Manda o e-mail só depois do commit: se a transação desfizer o token (erro na conta seguinte,
+     * falha no commit), nenhum link morto chega ao usuário, e o clique nunca chega antes do token
+     * existir no banco. Fora de transação (testes unitários) envia na hora.
+     */
+    private static void enviarDepoisDoCommit(Runnable envio) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            envio.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                envio.run();
+            }
+        });
     }
 
     private BusinessException tokenInvalido(String etapa) {

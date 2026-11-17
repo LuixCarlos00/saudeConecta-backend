@@ -2,6 +2,8 @@ package br.com.saudeConecta.contrato;
 
 import br.com.saudeConecta.application.auth.RecuperacaoSenhaService;
 import br.com.saudeConecta.application.exception.BusinessException;
+import br.com.saudeConecta.config.web.RateLimiter;
+import br.com.saudeConecta.presentation.controller.auth.HomeController;
 import br.com.saudeConecta.domain.admin.AdminOrganizacao;
 import br.com.saudeConecta.domain.organizacao.Organizacao;
 import br.com.saudeConecta.domain.planos.AssinaturaTenant;
@@ -45,7 +47,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -84,6 +89,7 @@ class HomeControllerContratoTest {
     @MockBean private SecretariaRepository secretariaRepository;
     @MockBean private AuditoriaAcessoMasterRepository auditoriaAcessoMasterRepository;
     @MockBean private RecuperacaoSenhaService recuperacaoSenhaService;
+    @MockBean private RateLimiter rateLimiter;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -108,6 +114,7 @@ class HomeControllerContratoTest {
         when(adminOrganizacaoRepository.findByUsuario_Id(42L))
                 .thenReturn(Optional.of(AdminOrganizacao.builder().nome("Ana Gestora").build()));
         assinaturaCom(StatusAssinatura.ATIVA);
+        when(rateLimiter.permitir(anyString(), anyInt())).thenReturn(true);
     }
 
     private void assinaturaCom(StatusAssinatura status) {
@@ -375,6 +382,21 @@ class HomeControllerContratoTest {
                             .content("{\"email\":\"x@y.com\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.message").value(MENSAGEM_RECUPERACAO));
+        }
+
+        @Test
+        @DisplayName("Limite de pedidos estourado: mesma resposta 200 genérica, sem gerar link")
+        void limiteEstourado() throws Exception {
+            when(rateLimiter.permitir(startsWith("recuperacao-senha:email:"), anyInt())).thenReturn(false);
+
+            mockMvc.perform(post("/Home/esqueciMinhaSenha")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\" A@B.com \"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value(MENSAGEM_RECUPERACAO));
+            verify(rateLimiter).permitir("recuperacao-senha:email:a@b.com", HomeController.LIMITE_RECUPERACAO_POR_EMAIL);
+            verify(rateLimiter).permitir(startsWith("recuperacao-senha:ip:"), eq(HomeController.LIMITE_RECUPERACAO_POR_IP));
+            verify(recuperacaoSenhaService, never()).solicitar(anyString());
         }
 
         @Test

@@ -44,6 +44,15 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByEmailAndOrganizacaoIsNull(String email);
 
     /**
+     * Todos os usuários sem organização com o e-mail (usuarios.email não é único). A recuperação
+     * de senha usa a lista para não estourar com dois usuários de plataforma no mesmo e-mail.
+     *
+     * @param email e-mail informado na tela "esqueci minha senha"
+     * @return usuários encontrados, vazio quando não há nenhum
+     */
+    List<Usuario> findAllByEmailAndOrganizacaoIsNull(String email);
+
+    /**
      * Busca um único usuário pelo tipo e sem organização vinculada.
      * Utilizado para localizar o SUPER_ADMIN na autenticação via senha master.
      *

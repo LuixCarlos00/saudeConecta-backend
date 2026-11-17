@@ -56,4 +56,27 @@
             <dropTable tableName="token_recuperacao_senha"/>
         </rollback>
     </changeSet>
+
+    <!-- ================================================================ -->
+    <!-- LIMPEZA DA MENSAGERIA                                            -->
+    <!-- O registro de cada e-mail enviado guardava o HTML inteiro. No    -->
+    <!-- fluxo antigo de recuperacao o HTML trazia a SENHA NOVA EM CLARO, -->
+    <!-- visivel na tela de mensageria para qualquer usuario da clinica.  -->
+    <!-- A aplicacao deixa de guardar esse corpo; aqui se apaga o que ja  -->
+    <!-- estava gravado. Sem rollback: o conteudo removido nao deve voltar.-->
+    <!-- ================================================================ -->
+    <changeSet id="069-002-limpar-corpo-recuperacao-senha-mensageria" author="equipe-sentinela">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="mensageria"/>
+        </preConditions>
+        <comment>Apaga o HTML (com senha em claro) dos e-mails de recuperacao ja registrados na mensageria</comment>
+
+        <update tableName="mensageria">
+            <column name="corpo_mensagem"
+                    value="[Conteúdo omitido: o e-mail de redefinição de senha leva um link de uso único que não fica armazenado.]"/>
+            <where>tipo_mensagem = 'EMAIL_RECUPERACAO_SENHA'</where>
+        </update>
+
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>

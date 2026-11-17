@@ -248,6 +248,21 @@ class MensageriaServiceTest {
         }
 
         @Test
+        @DisplayName("E-mail de redefinição de senha não pode ser reenviado: 422 REENVIO_NAO_PERMITIDO, nada é enviado")
+        void naoReenviaRecuperacaoSenha() {
+            mensageria.setTipoMensagem(TipoMensagem.EMAIL_RECUPERACAO_SENHA);
+            when(tenantHelper.getCurrentTenantIdOrNullIfSuperAdmin()).thenReturn(ORG_ID);
+            when(mensageriaRepository.findById(MSG_ID)).thenReturn(Optional.of(mensageria));
+
+            assertThatThrownBy(() -> mensageriaService.reenviarMensagem(MSG_ID))
+                    .isInstanceOf(br.com.saudeConecta.application.exception.BusinessException.class)
+                    .extracting("errorCode").isEqualTo("REENVIO_NAO_PERMITIDO");
+
+            verify(mensageriaRepository, never()).save(any());
+            verifyNoInteractions(emailNotificacaoService);
+        }
+
+        @Test
         @DisplayName("Deve lançar exceção quando profissional não encontrado ao reenviar")
         void deveLancarExcecaoQuandoProfissionalNaoEncontrado() {
             when(tenantHelper.getCurrentTenantIdOrNullIfSuperAdmin()).thenReturn(ORG_ID);
