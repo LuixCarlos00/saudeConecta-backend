@@ -36,9 +36,9 @@ public class EmailNotificacaoService {
     private static final String TEMPLATE_CHAMADO = "email-chamado-suporte";
     private static final String TEMPLATE_CHAMADO_STATUS = "email-chamado-status";
     private static final String TEMPLATE_ATIVACAO_ASSINATURA = "email-ativacao-assinatura";
-    private static final String ASSUNTO_ATIVACAO_ASSINATURA = "Saúde Conecta - Ative sua assinatura";
-    private static final String ASSUNTO_CREDENCIAIS = "Bem-vindo ao Saúde Conecta - Suas credenciais de acesso";
-    private static final String ASSUNTO_RECUPERACAO = "Saúde Conecta - Recuperação de Senha";
+    private static final String ASSUNTO_ATIVACAO_ASSINATURA = "DocClin - Ative sua assinatura";
+    private static final String ASSUNTO_CREDENCIAIS = "Bem-vindo ao DocClin - Suas credenciais de acesso";
+    private static final String ASSUNTO_RECUPERACAO = "DocClin - Recuperação de Senha";
 
     private static final DateTimeFormatter FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -183,7 +183,7 @@ public class EmailNotificacaoService {
                 variaveis.put("quantidadeAnexos", dados.quantidadeAnexos());
 
                 String corpoHtml = emailTemplateService.renderizar(TEMPLATE_CHAMADO, variaveis);
-                String assunto = "Saúde Conecta - Chamado " + protocolo + " registrado";
+                String assunto = "DocClin - Chamado " + protocolo + " registrado";
 
                 emailRetryService.executarComRetry(
                         email, nome, assunto, corpoHtml,
@@ -224,7 +224,7 @@ public class EmailNotificacaoService {
                 variaveis.put("observacao", dados.observacao());
 
                 String corpoHtml = emailTemplateService.renderizar(TEMPLATE_CHAMADO_STATUS, variaveis);
-                String assunto = "Saúde Conecta - Chamado " + protocolo + ": " + statusAtual;
+                String assunto = "DocClin - Chamado " + protocolo + ": " + statusAtual;
 
                 emailRetryService.executarComRetry(
                         email, nome, assunto, corpoHtml,

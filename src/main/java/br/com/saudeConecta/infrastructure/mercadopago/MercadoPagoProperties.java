@@ -32,7 +32,7 @@ public class MercadoPagoProperties {
     private String apiUrl = "https://api.mercadopago.com";
 
     /** Prefixo do campo reason exibido na fatura do cliente. */
-    private String reasonPrefix = "Saúde Conecta";
+    private String reasonPrefix = "DocClin";
 
     /**
      * Indica se a integração está configurada o suficiente para operar.
