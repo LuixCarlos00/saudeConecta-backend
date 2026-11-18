@@ -61,6 +61,15 @@ public class PlataformaDashboardService {
             StatusAssinatura.INADIMPLENTE);
     private static final String MOTIVO_PENDENCIA_MANUAL = "PENDENCIA_MANUAL";
     private static final String MOTIVO_TRIAL_VENCENDO = "TRIAL_VENCENDO";
+    private static final String CLINICA_NAO_IDENTIFICADA = "Clínica não identificada";
+
+    /** Título de cada motivo de pendência (mesmos textos da tela de pendências manuais). */
+    private static final Map<String, String> TITULO_MOTIVO_PENDENCIA = Map.of(
+            "PAGAMENTO_EM_CANCELADA", "Pagamento em assinatura cancelada",
+            "PAGAMENTO_EM_CORTESIA", "Pagamento em cortesia",
+            "PAGAMENTO_SEM_ASSINATURA", "Pagamento sem assinatura",
+            "PREAPPROVAL_SUBSTITUIDO_AUTORIZADO", "Pagamento antigo autorizado",
+            "EVENTO_EXPIRADO", "Notificação expirada");
 
     private final AssinaturaTenantRepository assinaturaRepository;
     private final CobrancaTenantRepository cobrancaRepository;
@@ -205,9 +214,13 @@ public class PlataformaDashboardService {
     /** Até 20 itens: PENDENCIA_MANUAL, SUSPENSA, INADIMPLENTE e TRIAL_VENCENDO, nessa ordem. */
     private List<AtencaoResponse> montarAtencao(LocalDate hoje) {
         List<AtencaoResponse> itens = new ArrayList<>();
+        // Pendência: o nome é a clínica (quando identificada) e "detalhe" leva o motivo legível.
+        // organizacaoId fica null: o item leva à tela de pendências, não à assinatura.
         webhookEventoRepository.buscarPendentesManuais(PageRequest.ofSize(LIMITE_ATENCAO)).forEach(e ->
-                itens.add(new AtencaoResponse(null, "Evento Mercado Pago #" + e.getId(), null, null,
-                        MOTIVO_PENDENCIA_MANUAL, e.getRecebidoEm().toLocalDate(), null)));
+                itens.add(new AtencaoResponse(null,
+                        e.getOrganizacaoNome() != null ? e.getOrganizacaoNome() : CLINICA_NAO_IDENTIFICADA,
+                        null, null, MOTIVO_PENDENCIA_MANUAL, e.getRecebidoEm().toLocalDate(), null,
+                        descreverMotivoPendencia(e.getMotivoAtencao()))));
         for (StatusAssinatura status : ORDEM_ATENCAO) {
             int restante = LIMITE_ATENCAO - itens.size();
             if (restante > 0) {
@@ -224,9 +237,24 @@ public class PlataformaDashboardService {
         return itens;
     }
 
+    /**
+     * Título legível do motivo da pendência ("CODIGO: detalhe" → título do código).
+     *
+     * @param motivoAtencao texto gravado no evento
+     * @return título conhecido, o próprio código quando desconhecido, ou null sem motivo
+     */
+    static String descreverMotivoPendencia(String motivoAtencao) {
+        if (motivoAtencao == null || motivoAtencao.isBlank()) {
+            return null;
+        }
+        int separador = motivoAtencao.indexOf(':');
+        String codigo = (separador >= 0 ? motivoAtencao.substring(0, separador) : motivoAtencao).trim();
+        return TITULO_MOTIVO_PENDENCIA.getOrDefault(codigo, codigo);
+    }
+
     private AtencaoResponse paraAtencao(PlataformaProjecoes.ClinicaAtencao c, String motivo) {
         return new AtencaoResponse(c.getOrganizacaoId(), c.getNome(), c.getPlano(), c.getStatus(), motivo,
-                c.getDataVencimento(), dinheiro(c.getValorMensal()));
+                c.getDataVencimento(), dinheiro(c.getValorMensal()), null);
     }
 
     /** Valor em reais com 2 casas; ausência vira 0,00. */

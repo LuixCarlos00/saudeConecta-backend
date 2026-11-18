@@ -218,6 +218,8 @@ class PlataformaDashboardServiceTest {
         assertThat(itens).extracting(AtencaoResponse::motivo)
                 .containsExactly("PENDENCIA_MANUAL", "SUSPENSA", "INADIMPLENTE", "TRIAL_VENCENDO");
         assertThat(itens.get(0).organizacaoId()).isNull();
+        assertThat(itens.get(0).nome()).isEqualTo("Clínica Vida");
+        assertThat(itens.get(0).detalhe()).isEqualTo("Pagamento em cortesia");
         assertThat(itens.get(0).dataVencimento()).isEqualTo(LocalDate.of(2026, 11, 3));
         assertThat(itens.get(2).nome()).isEqualTo("Inadimplente");
         assertThat(itens.get(2).valorMensal()).isEqualTo(new BigDecimal("149.00"));
@@ -301,12 +303,22 @@ class PlataformaDashboardServiceTest {
     }
 
     private PlataformaProjecoes.EventoPendente evento(Long id, LocalDateTime recebidoEm) {
-        return projecao(PlataformaProjecoes.EventoPendente.class, "id", id, "recebidoEm", recebidoEm);
+        return projecao(PlataformaProjecoes.EventoPendente.class, "id", id, "recebidoEm", recebidoEm,
+                "motivoAtencao", "PAGAMENTO_EM_CORTESIA: fatura 1 aprovada", "organizacaoNome", "Clínica Vida");
     }
 
     private PlataformaProjecoes.ClinicaAtencao atencao(Long id, String nome, StatusAssinatura status, String valor) {
         return projecao(PlataformaProjecoes.ClinicaAtencao.class, "organizacaoId", id, "nome", nome,
                 "plano", TipoPlano.STARTER, "status", status, "dataVencimento", LocalDate.of(2026, 10, 28),
                 "valorMensal", new BigDecimal(valor));
+    }
+
+    @Test
+    @DisplayName("Motivo da pendência: título conhecido, código desconhecido e vazio")
+    void descreveMotivoDaPendencia() {
+        assertThat(PlataformaDashboardService.descreverMotivoPendencia("EVENTO_EXPIRADO: falhou 6 vezes"))
+                .isEqualTo("Notificação expirada");
+        assertThat(PlataformaDashboardService.descreverMotivoPendencia("NOVO_MOTIVO")).isEqualTo("NOVO_MOTIVO");
+        assertThat(PlataformaDashboardService.descreverMotivoPendencia(null)).isNull();
     }
 }

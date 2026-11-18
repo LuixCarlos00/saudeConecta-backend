@@ -100,7 +100,9 @@ public interface MpWebhookEventoRepository extends JpaRepository<MpWebhookEvento
     long countByRequerAtencaoTrue();
 
     /** Eventos que exigem tratamento manual, do mais recente, sem carregar o payload. */
-    @Query("SELECT e.id AS id, e.recebidoEm AS recebidoEm FROM MpWebhookEvento e " +
+    @Query("SELECT e.id AS id, e.recebidoEm AS recebidoEm, e.motivoAtencao AS motivoAtencao, " +
+           "o.nome AS organizacaoNome FROM MpWebhookEvento e " +
+           "LEFT JOIN Organizacao o ON o.id = e.organizacaoId " +
            "WHERE e.requerAtencao = true ORDER BY e.recebidoEm DESC, e.id DESC")
     List<PlataformaProjecoes.EventoPendente> buscarPendentesManuais(Pageable pageable);
 }
