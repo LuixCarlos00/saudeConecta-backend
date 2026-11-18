@@ -1,0 +1,38 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ================================================================ -->
+    <!-- CARGO DO ADMINISTRADOR: LISTA ÚNICA (CargoAdmin.VALORES)         -->
+    <!-- Antes cada tela gravava uma coisa: códigos (GERENTE,              -->
+    <!-- DIRETOR_ADMINISTRATIVO, COORDENADOR...), "Gestor", "Administrador"-->
+    <!-- ou texto livre. Aqui tudo vira um dos cinco rótulos aceitos.     -->
+    <!-- Valor desconhecido ou vazio: "Responsável" para o dono da clínica -->
+    <!-- (is_owner) e "Administrador(a)" para os demais.                  -->
+    <!-- SUPERVISOR não está na lista nova e vira "Coordenador(a)".       -->
+    <!-- Idempotente: rodar de novo não muda nada.                        -->
+    <!-- ================================================================ -->
+    <changeSet id="070-001-padronizar-cargo-admin" author="equipe-sentinela">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="admin_organizacao"/>
+        </preConditions>
+        <comment>Converte o cargo do administrador para a lista única de CargoAdmin</comment>
+
+        <sql>
+            UPDATE admin_organizacao
+               SET cargo = CASE
+                   WHEN UPPER(TRIM(cargo)) IN ('RESPONSÁVEL', 'RESPONSAVEL', 'DONO', 'DONA', 'PROPRIETÁRIO', 'PROPRIETARIO') THEN 'Responsável'
+                   WHEN UPPER(TRIM(cargo)) IN ('DIRETOR', 'DIRETORA', 'DIRETOR(A)', 'DIRETOR_ADMINISTRATIVO', 'DIRETOR ADMINISTRATIVO') THEN 'Diretor(a)'
+                   WHEN UPPER(TRIM(cargo)) IN ('GERENTE') THEN 'Gerente'
+                   WHEN UPPER(TRIM(cargo)) IN ('ADMINISTRADOR', 'ADMINISTRADORA', 'ADMINISTRADOR(A)', 'GESTOR', 'GESTORA') THEN 'Administrador(a)'
+                   WHEN UPPER(TRIM(cargo)) IN ('COORDENADOR', 'COORDENADORA', 'COORDENADOR(A)', 'SUPERVISOR', 'SUPERVISORA') THEN 'Coordenador(a)'
+                   WHEN is_owner = 1 THEN 'Responsável'
+                   ELSE 'Administrador(a)'
+               END
+             WHERE cargo IS NULL
+                OR cargo NOT IN ('Responsável', 'Diretor(a)', 'Gerente', 'Administrador(a)', 'Coordenador(a)');
+        </sql>
+    </changeSet>
+</databaseChangeLog>

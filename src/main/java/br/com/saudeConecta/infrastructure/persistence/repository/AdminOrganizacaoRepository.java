@@ -1,5 +1,6 @@
 package br.com.saudeConecta.infrastructure.persistence.repository;
 
+import java.util.Collection;
 import br.com.saudeConecta.domain.admin.AdminOrganizacao;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -69,4 +70,12 @@ public interface AdminOrganizacaoRepository extends JpaRepository<AdminOrganizac
            nativeQuery = true)
     Long countAtivosByOrganizacaoId(@Param("orgId") Long organizacaoId);
 
+    /**
+     * Nome do cadastro de cada usuário, em lote (auditoria do SUPER_ADMIN: evita um select por linha).
+     *
+     * @param usuarioIds ids de usuário
+     * @return pares [usuarioId, nome]
+     */
+    @Query("SELECT a.usuario.id, a.nome FROM AdminOrganizacao a WHERE a.usuario.id IN :usuarioIds")
+    List<Object[]> buscarNomesPorUsuarioIds(@Param("usuarioIds") Collection<Long> usuarioIds);
 }

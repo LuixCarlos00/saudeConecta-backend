@@ -55,7 +55,8 @@ public class UsuarioController {
     public ResponseEntity<Void> trocarSenharUsuariobyOrg(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
         try {
             String novaSenha = body.get("senhaNova");
-            if (novaSenha == null || novaSenha.isBlank()) {
+            // Mesma regra da redefinição por link (DadosRedefinirSenha): entre 8 e 100 caracteres
+            if (novaSenha == null || novaSenha.isBlank() || novaSenha.length() < 8 || novaSenha.length() > 100) {
                 return ResponseEntity.badRequest().build();
             }
             usuarioService.trocarSenharUsuariobyOrg(id, novaSenha);

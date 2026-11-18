@@ -3,86 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>Redefinição de senha - DocClin</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            background: linear-gradient(135deg, #00d9ff 0%, #00a8cc 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-radius: 8px 8px 0 0;
-        }
-        .header h1 {
-            margin: 0;
-        }
-        .content {
-            background-color: #f9f9f9;
-            padding: 30px;
-            border: 1px solid #ddd;
-        }
-        .credentials-box {
-            background-color: #fff;
-            border: 2px solid #00d9ff;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .credential-item {
-            margin: 10px 0;
-        }
-        .credential-label {
-            font-weight: bold;
-            color: #555;
-        }
-        .credential-value {
-            color: #00a8cc;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 4px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        .info-box {
-            background-color: #e7f5ff;
-            border: 1px solid #00d9ff;
-            border-radius: 4px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        .footer {
-            background-color: #1a1a2e;
-            color: white;
-            padding: 15px;
-            text-align: center;
-            border-radius: 0 0 8px 8px;
-            font-size: 12px;
-        }
-        .btn {
-            display: inline-block;
-            background: linear-gradient(135deg, #00d9ff 0%, #00a8cc 100%);
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 6px;
-            margin-top: 15px;
-        }
-    </style>
+    <style th:replace="~{fragments/email-base :: estilo}"></style>
 </head>
 <body>
+<div class="container">
     <div class="header">
-        <h1>🔐 DocClin</h1>
-        <p>Redefinição de senha</p>
+        <p class="marca">DocClin</p>
+        <p class="subtitulo">Redefinição de senha</p>
     </div>
 
     <div class="content">
@@ -90,19 +17,17 @@
 
         <p>Recebemos um pedido para redefinir a senha da conta abaixo. Sua senha atual continua valendo até você criar uma nova.</p>
 
-        <div class="credentials-box">
-            <div class="credential-item">
-                <span class="credential-label">Login da conta:</span><br>
-                <span class="credential-value" th:text="${login}">usuario</span>
-            </div>
+        <div class="destaque">
+            <span class="rotulo">Login da conta:</span><br>
+            <span class="valor" th:text="${login}">usuario</span>
         </div>
 
-        <p style="text-align: center;">
+        <div class="acao">
             <a th:href="${link}" href="#" class="btn">Criar nova senha</a>
-        </p>
+        </div>
 
-        <div class="warning">
-            <strong>⚠️ Importante:</strong>
+        <div class="aviso">
+            <strong>Importante</strong>
             <ul>
                 <li>O link vale por <strong th:text="${validadeMinutos} + ' minutos'">30 minutos</strong> e só pode ser usado uma vez.</li>
                 <li>Se você pedir outro link, este deixa de funcionar.</li>
@@ -110,16 +35,14 @@
             </ul>
         </div>
 
-        <div class="info-box">
-            <strong>ℹ️ O botão não funcionou?</strong>
+        <div class="aviso">
+            <strong>O botão não funcionou?</strong>
             <p>Copie e cole este endereço no navegador:</p>
-            <p style="word-break: break-all;" th:text="${link}">https://...</p>
+            <p class="link-texto" th:text="${link}">https://...</p>
         </div>
     </div>
 
-    <div class="footer">
-        <p>Este é um email automático. Por favor, não responda.</p>
-        <p>© DocClin - Todos os direitos reservados</p>
-    </div>
+    <div th:replace="~{fragments/email-base :: rodape}"></div>
+</div>
 </body>
 </html>

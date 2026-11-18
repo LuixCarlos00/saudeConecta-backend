@@ -1,22 +1,31 @@
 package br.com.saudeConecta.application.historico;
 
- import br.com.saudeConecta.domain.historicodadospessoais.EntidadeTipo;
+ import br.com.saudeConecta.application.historico.dto.HistoricoAlteracaoResponse;
+import br.com.saudeConecta.domain.historicodadospessoais.EntidadeTipo;
  import br.com.saudeConecta.domain.historicodadospessoais.HistoricoDadosPessoais;
  import br.com.saudeConecta.domain.organizacao.Organizacao;
  import br.com.saudeConecta.domain.usuario.Usuario;
  import br.com.saudeConecta.config.tenant.TenantAccessDeniedException;
  import br.com.saudeConecta.config.tenant.TenantHelper;
 import br.com.saudeConecta.infrastructure.persistence.repository.HistoricoDadosPessoaisRepository;
+ import br.com.saudeConecta.infrastructure.persistence.repository.AdminOrganizacaoRepository;
  import br.com.saudeConecta.infrastructure.persistence.repository.OrganizacaoRepository;
+ import br.com.saudeConecta.infrastructure.persistence.repository.ProfissionalRepository;
+ import br.com.saudeConecta.infrastructure.persistence.repository.SecretariaRepository;
  import br.com.saudeConecta.infrastructure.persistence.repository.UsuarioRepository;
  import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
  import java.lang.reflect.Field;
  import java.lang.reflect.Modifier;
  import java.math.BigDecimal;
+import java.time.LocalDate;
    import java.util.*;
 
 @Service
@@ -28,6 +37,9 @@ public class HistoricoDadosPessoaisService {
     private final OrganizacaoRepository organizacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final TenantHelper tenantHelper;
+    private final AdminOrganizacaoRepository adminOrganizacaoRepository;
+    private final ProfissionalRepository profissionalRepository;
+    private final SecretariaRepository secretariaRepository;
 
     private static final Set<String> CAMPOS_IGNORADOS = Set.of(
             "serialVersionUID",
@@ -99,6 +111,72 @@ public class HistoricoDadosPessoaisService {
         }
         log.debug("historico.buscar escopo=RECENTES");
         return historicoRepository.findTop10ByOrderByCriadoEmDesc();
+    }
+
+    /** Maior página aceita na auditoria: a tela pede 20; o teto evita varrer a tabela inteira de uma vez. */
+    static final int TAMANHO_MAXIMO_PAGINA = 100;
+
+    /**
+     * Auditoria do SUPER_ADMIN: alterações de dados cadastrais de todas as clínicas, mais recentes primeiro.
+     *
+     * @param organizacaoId clínica (null = todas)
+     * @param entidade      tipo de cadastro (null = todos)
+     * @param de            primeiro dia do período, inclusive (null = sem início)
+     * @param ate           último dia do período, inclusive (null = sem fim)
+     * @param campo         parte do nome do campo (null ou vazio = todos)
+     * @param pageable      página e tamanho; a ordenação é sempre por data decrescente
+     * @return página de alterações
+     */
+    @Transactional(readOnly = true)
+    public Page<HistoricoAlteracaoResponse> pesquisar(Long organizacaoId, EntidadeTipo entidade,
+                                                      LocalDate de, LocalDate ate, String campo, Pageable pageable) {
+        if (!tenantHelper.isSuperAdmin()) {
+            throw new TenantAccessDeniedException("Acesso negado: apenas SUPER_ADMIN pode acessar a auditoria");
+        }
+        if (de != null && ate != null && ate.isBefore(de)) {
+            throw new IllegalArgumentException("A data final não pode ser anterior à data inicial");
+        }
+        int tamanho = Math.min(Math.max(pageable.getPageSize(), 1), TAMANHO_MAXIMO_PAGINA);
+        Pageable pagina = PageRequest.of(pageable.getPageNumber(), tamanho, Sort.by(Sort.Direction.DESC, "criadoEm"));
+        String filtroCampo = campo == null || campo.isBlank() ? null : campo.trim();
+        log.debug("historico.pesquisar organizacaoId={} entidade={} de={} ate={} pagina={}",
+                organizacaoId, entidade, de, ate, pagina.getPageNumber());
+        Page<HistoricoDadosPessoais> registros = historicoRepository.pesquisar(
+                organizacaoId,
+                entidade,
+                de != null ? de.atStartOfDay() : null,
+                // "até" inclui o dia inteiro: compara com o início do dia seguinte
+                ate != null ? ate.plusDays(1).atStartOfDay() : null,
+                filtroCampo,
+                pagina);
+        Map<Long, String> nomes = nomesDosAutores(registros.getContent());
+        return registros.map(h -> HistoricoAlteracaoResponse.de(h,
+                h.getUsuario() != null ? nomes.get(h.getUsuario().getId()) : null));
+    }
+
+    /**
+     * Nome de quem fez cada alteração da página. O nome mora no cadastro do perfil (admin,
+     * profissional ou secretária), não no usuário: busca os três em lote, uma consulta por perfil.
+     *
+     * @param registros linhas da página
+     * @return usuarioId → nome (sem entrada quando o usuário não tem cadastro, ex.: ROOT)
+     */
+    private Map<Long, String> nomesDosAutores(List<HistoricoDadosPessoais> registros) {
+        Set<Long> ids = new HashSet<>();
+        registros.forEach(h -> { if (h.getUsuario() != null) { ids.add(h.getUsuario().getId()); } });
+        Map<Long, String> nomes = new HashMap<>();
+        if (ids.isEmpty()) {
+            return nomes;
+        }
+        for (List<Object[]> pares : List.of(
+                adminOrganizacaoRepository.buscarNomesPorUsuarioIds(ids),
+                profissionalRepository.buscarNomesPorUsuarioIds(ids),
+                secretariaRepository.buscarNomesPorUsuarioIds(ids))) {
+            for (Object[] par : pares) {
+                nomes.putIfAbsent((Long) par[0], (String) par[1]);
+            }
+        }
+        return nomes;
     }
 
    //=======================================

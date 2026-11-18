@@ -1,5 +1,6 @@
 package br.com.saudeConecta.infrastructure.persistence.repository;
 
+import java.util.Collection;
 import br.com.saudeConecta.domain.secretaria.Secretaria;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -36,4 +37,13 @@ public interface SecretariaRepository extends JpaRepository<Secretaria, Long> {
     @Query("SELECT COUNT(s) FROM Secretaria s " +
            "WHERE s.organizacao.id = :orgId AND s.status IN ('ATIVO', 'INATIVO')")
     Long countAtivasByOrganizacaoId(@Param("orgId") Long organizacaoId);
+
+    /**
+     * Nome do cadastro de cada usuário, em lote (auditoria do SUPER_ADMIN: evita um select por linha).
+     *
+     * @param usuarioIds ids de usuário
+     * @return pares [usuarioId, nome]
+     */
+    @Query("SELECT s.usuario.id, s.nome FROM Secretaria s WHERE s.usuario.id IN :usuarioIds")
+    List<Object[]> buscarNomesPorUsuarioIds(@Param("usuarioIds") Collection<Long> usuarioIds);
 }

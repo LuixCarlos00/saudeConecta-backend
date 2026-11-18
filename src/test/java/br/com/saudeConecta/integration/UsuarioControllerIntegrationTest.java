@@ -251,6 +251,29 @@ class UsuarioControllerIntegrationTest {
 
         @Test
         @WithMockUser
+        @DisplayName("Deve retornar 400 quando a senha nova tem menos de 8 caracteres e não chamar o service")
+        void deveRetornar400QuandoSenhaCurta() throws Exception {
+            mockMvc.perform(put("/usuario/trocarSenharUsuariobyOrg/1")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("senhaNova", "1234567"))))
+                    .andExpect(status().isBadRequest());
+            verify(usuarioService, never()).trocarSenharUsuariobyOrg(any(), any());
+        }
+
+        @Test
+        @WithMockUser
+        @DisplayName("Deve retornar 400 quando a senha nova passa de 100 caracteres")
+        void deveRetornar400QuandoSenhaLonga() throws Exception {
+            mockMvc.perform(put("/usuario/trocarSenharUsuariobyOrg/1")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of("senhaNova", "a".repeat(101)))))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @WithMockUser
         @DisplayName("Deve retornar 404 quando usuário não encontrado ao trocar senha")
         void deveRetornar404QuandoNaoEncontrado() throws Exception {
             doThrow(new IllegalArgumentException("não encontrado"))

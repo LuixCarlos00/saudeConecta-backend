@@ -34,6 +34,9 @@ class HistoricoDadosPessoaisServiceTest {
     @Mock private OrganizacaoRepository organizacaoRepository;
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private TenantHelper tenantHelper;
+    @Mock private br.com.saudeConecta.infrastructure.persistence.repository.AdminOrganizacaoRepository adminOrganizacaoRepository;
+    @Mock private br.com.saudeConecta.infrastructure.persistence.repository.ProfissionalRepository profissionalRepository;
+    @Mock private br.com.saudeConecta.infrastructure.persistence.repository.SecretariaRepository secretariaRepository;
 
     @InjectMocks
     private HistoricoDadosPessoaisService service;
