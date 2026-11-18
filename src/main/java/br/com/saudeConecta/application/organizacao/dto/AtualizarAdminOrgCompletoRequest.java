@@ -1,7 +1,9 @@
 package br.com.saudeConecta.application.organizacao.dto;
 
+import br.com.saudeConecta.domain.admin.CargoAdmin;
 import br.com.saudeConecta.config.web.SafeInput;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -13,8 +15,7 @@ public record AtualizarAdminOrgCompletoRequest(
     @SafeInput
     String nome,
 
-    @Size(max = 50, message = "Cargo deve ter no máximo 50 caracteres")
-    @SafeInput
+    @Pattern(regexp = CargoAdmin.REGEX, message = CargoAdmin.MENSAGEM_INVALIDO)
     String cargo,
 
     @Email(message = "Email inválido")

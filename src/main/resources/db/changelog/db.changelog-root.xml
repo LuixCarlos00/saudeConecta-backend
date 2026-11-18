@@ -180,4 +180,7 @@
 
     <!-- Recuperacao de senha por link com token de uso unico (antes a senha era trocada na hora) -->
     <include file="db/changelog/08-2026/069-token-recuperacao-senha.xml"/>
+
+    <!-- Cargo do administrador: uma lista só (CargoAdmin) em todas as telas; converte os valores antigos -->
+    <include file="db/changelog/08-2026/070-padronizar-cargo-admin.xml"/>
 </databaseChangeLog>

@@ -286,7 +286,7 @@ class AdminOrganizacaoControllerIntegrationTest {
     class CadastrarAdminOrgCompleto {
 
         private static final String BODY_VALIDO = """
-                {"tipoPessoa":"FISICA","nome":"Gestor Novo","cpf":"12345678900","cargo":"Gestor",
+                {"tipoPessoa":"FISICA","nome":"Gestor Novo","cpf":"12345678900","cargo":"Gerente",
                  "email":"gestor@novo.com","cep":"01310-100","uf":"SP","municipio":"São Paulo",
                  "rua":"Rua A","numero":100,"planoId":1,"cortesia":true}
                 """;

@@ -17,6 +17,7 @@ import br.com.saudeConecta.config.logging.MascaraLog;
 import br.com.saudeConecta.config.tenant.TenantAccessDeniedException;
 import br.com.saudeConecta.config.tenant.TenantHelper;
 import br.com.saudeConecta.domain.admin.AdminOrganizacao;
+import br.com.saudeConecta.domain.admin.CargoAdmin;
 import br.com.saudeConecta.domain.endereco.Endereco;
 import br.com.saudeConecta.domain.historicodadospessoais.EntidadeTipo;
 import br.com.saudeConecta.domain.organizacao.Organizacao;
@@ -140,7 +141,7 @@ public class AdminOrganizacaoService {
             .usuario(usuario)
             .nome(request.nome())
             .email(request.email())
-            .cargo("Administrador")
+            .cargo(CargoAdmin.ADMINISTRADOR)
             .isOwner(false)
             .status(AdminOrganizacao.StatusAdmin.ATIVO)
             .build();

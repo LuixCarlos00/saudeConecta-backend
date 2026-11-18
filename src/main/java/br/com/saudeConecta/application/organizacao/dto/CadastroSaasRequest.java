@@ -1,9 +1,11 @@
 package br.com.saudeConecta.application.organizacao.dto;
 
+import br.com.saudeConecta.domain.admin.CargoAdmin;
 import br.com.saudeConecta.config.web.SafeInput;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -46,8 +48,7 @@ public record CadastroSaasRequest(
     @Size(max = 14, message = "CPF deve ter no máximo 14 caracteres")
     String cpf,
 
-    @Size(max = 50, message = "Cargo deve ter no máximo 50 caracteres")
-    @SafeInput
+    @Pattern(regexp = CargoAdmin.REGEX, message = CargoAdmin.MENSAGEM_INVALIDO)
     String cargo,
 
     @NotBlank(message = "Email é obrigatório")
@@ -110,7 +111,7 @@ public record CadastroSaasRequest(
 
 ) {
 
-    private static final String CARGO_PADRAO = "Responsável";
+    private static final String CARGO_PADRAO = CargoAdmin.RESPONSAVEL;
 
     /**
      * Converte para o request interno de cadastro completo, sempre sem cortesia.

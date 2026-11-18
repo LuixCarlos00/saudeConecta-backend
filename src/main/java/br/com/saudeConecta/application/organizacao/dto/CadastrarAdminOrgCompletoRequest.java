@@ -1,9 +1,11 @@
 package br.com.saudeConecta.application.organizacao.dto;
 
+import br.com.saudeConecta.domain.admin.CargoAdmin;
 import br.com.saudeConecta.config.web.SafeInput;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -16,7 +18,7 @@ import jakarta.validation.constraints.Size;
  * @param tipoPessoa     Tipo de pessoa (FISICA ou JURIDICA)
  * @param nome           Nome do administrador
  * @param cpf            CPF do administrador (usado como login quando tipoPessoa=FISICA)
- * @param cargo          Cargo do administrador (GERENTE, DIRETOR_ADMINISTRATIVO)
+ * @param cargo          Cargo do administrador, um de {@link CargoAdmin#VALORES}
  * @param email          Email do administrador
  * @param nomeClinica    Nome da organização/clínica (obrigatório para JURIDICA)
  * @param razaoSocial    Razão social da organização (obrigatório para JURIDICA)
@@ -49,8 +51,7 @@ public record CadastrarAdminOrgCompletoRequest(
     String cpf,
 
     @NotBlank(message = "Cargo é obrigatório")
-    @Size(max = 50, message = "Cargo deve ter no máximo 50 caracteres")
-    @SafeInput
+    @Pattern(regexp = CargoAdmin.REGEX, message = CargoAdmin.MENSAGEM_INVALIDO)
     String cargo,
 
     @NotBlank(message = "Email é obrigatório")
