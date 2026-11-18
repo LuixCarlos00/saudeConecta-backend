@@ -42,11 +42,6 @@ public class EmailNotificacaoService {
 
     private static final DateTimeFormatter FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    private static final String COR_ADMINISTRADOR = "#1976D2";
-    private static final String COR_MEDICO = "#4CAF50";
-    private static final String COR_SECRETARIA = "#9C27B0";
-    private static final String COR_PACIENTE = "#FF9800";
-
     private final EmailTemplateService emailTemplateService;
     private final EmailRetryService emailRetryService;
     private final Executor emailTaskExecutor;
@@ -76,7 +71,7 @@ public class EmailNotificacaoService {
     public void enviarCredenciaisAdministrador(String email, String nome, String login,
                                                 String senha, Long organizacaoId, Long adminOrgId) {
         enviarCredenciais(new CredenciaisEmail(email, nome, login, senha, PERFIL_ADMINISTRADOR,
-                COR_ADMINISTRADOR, null, organizacaoId, adminOrgId));
+                null, organizacaoId, adminOrgId));
     }
 
     /**
@@ -94,7 +89,7 @@ public class EmailNotificacaoService {
     public void enviarCredenciaisClinico(String email, String nome, String login, String senha,
                                           String nomeOrganizacao, Long organizacaoId, Long profissionalId) {
         enviarCredenciais(new CredenciaisEmail(email, nome, login, senha, "Médico",
-                COR_MEDICO, nomeOrganizacao, organizacaoId, profissionalId));
+                nomeOrganizacao, organizacaoId, profissionalId));
     }
 
     /**
@@ -111,7 +106,7 @@ public class EmailNotificacaoService {
     public void enviarCredenciaisSecretaria(String email, String nome, String login, String senha,
                                              Long organizacaoId, Long secretariaId) {
         enviarCredenciais(new CredenciaisEmail(email, nome, login, senha, "Secretária",
-                COR_SECRETARIA, null, organizacaoId, secretariaId));
+                null, organizacaoId, secretariaId));
     }
 
     /**
@@ -325,7 +320,7 @@ public class EmailNotificacaoService {
     public void enviarCredenciaisPaciente(String email, String nome, String login, String senha,
                                            Long organizacaoId, Long pacienteId) {
         enviarCredenciais(new CredenciaisEmail(email, nome, login, senha, "Paciente",
-                COR_PACIENTE, null, organizacaoId, pacienteId));
+                null, organizacaoId, pacienteId));
     }
 
     /**
@@ -351,7 +346,6 @@ public class EmailNotificacaoService {
                 variaveis.put("login", login);
                 variaveis.put("senha", senha);
                 variaveis.put("tipoUsuario", tipoUsuario);
-                variaveis.put("corTema", dados.corTema());
                 variaveis.put("nomeOrganizacao", dados.nomeOrganizacao());
 
                 String corpoHtml = emailTemplateService.renderizar(TEMPLATE_CREDENCIAIS, variaveis);
@@ -376,13 +370,12 @@ public class EmailNotificacaoService {
      * @param login           login de acesso
      * @param senha           senha gerada
      * @param tipoUsuario     label amigável do perfil (Administrador, Médico, Secretária, Paciente)
-     * @param corTema         cor do tema do email
      * @param nomeOrganizacao nome da organização (pode ser nulo)
      * @param organizacaoId   ID da organização
      * @param entidadeId      ID da entidade destinatária
      */
     private record CredenciaisEmail(String email, String nome, String login, String senha,
-                                    String tipoUsuario, String corTema, String nomeOrganizacao,
+                                    String tipoUsuario, String nomeOrganizacao,
                                     Long organizacaoId, Long entidadeId) {
     }
 

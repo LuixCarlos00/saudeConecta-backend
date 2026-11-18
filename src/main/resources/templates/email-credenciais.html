@@ -3,90 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <title>Bem-vindo ao DocClin</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-radius: 8px 8px 0 0;
-        }
-        .content {
-            background-color: #f9f9f9;
-            padding: 30px;
-            border: 1px solid #ddd;
-        }
-        .credentials-box {
-            background-color: #fff;
-            border-width: 2px;
-            border-style: solid;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .credential-item {
-            margin: 10px 0;
-        }
-        .credential-label {
-            font-weight: bold;
-            color: #555;
-        }
-        .credential-value {
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 4px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        .footer {
-            background-color: #333;
-            color: white;
-            padding: 15px;
-            text-align: center;
-            border-radius: 0 0 8px 8px;
-            font-size: 12px;
-        }
-    </style>
+    <style th:replace="~{fragments/email-base :: estilo}"></style>
 </head>
 <body>
-    <div class="header" th:style="'background-color: ' + ${corTema}">
-        <h1>&#127973; DocClin</h1>
-        <p>Bem-vindo à nossa plataforma!</p>
+<div class="container">
+    <div class="header">
+        <p class="marca">DocClin</p>
+        <p class="subtitulo">Bem-vindo à nossa plataforma</p>
     </div>
-    
+
     <div class="content">
         <h2>Olá, <span th:text="${nome}">Usuário</span>!</h2>
-        
-        <p>Seu cadastro como <strong th:text="${tipoUsuario}">Profissional</strong> foi realizado com sucesso em nossa plataforma. Abaixo estão suas credenciais de acesso:</p>
-        
-        <div class="credentials-box" th:style="'border-color: ' + ${corTema}">
-            <div class="credential-item">
-                <span class="credential-label">Login (CPF):</span><br>
-                <span class="credential-value" th:style="'color: ' + ${corTema}" th:text="${login}">00000000000</span>
+
+        <p>Seu cadastro como <strong th:text="${tipoUsuario}">Profissional</strong> foi realizado com sucesso. Abaixo estão suas credenciais de acesso:</p>
+
+        <div class="destaque">
+            <div class="item">
+                <span class="rotulo">Login (CPF):</span><br>
+                <span class="valor" th:text="${login}">00000000000</span>
             </div>
-            <div class="credential-item">
-                <span class="credential-label">Senha:</span><br>
-                <span class="credential-value" th:style="'color: ' + ${corTema}" th:text="${senha}">********</span>
+            <div class="item">
+                <span class="rotulo">Senha:</span><br>
+                <span class="valor" th:text="${senha}">********</span>
             </div>
         </div>
 
-        <div th:if="${nomeOrganizacao != null}" style="margin: 15px 0;">
-            <p>Organização: <strong th:text="${nomeOrganizacao}">Clínica</strong></p>
-        </div>
-        
-        <div class="warning">
-            <strong>&#9888;&#65039; Importante:</strong>
+        <p th:if="${nomeOrganizacao != null}">Organização: <strong th:text="${nomeOrganizacao}">Clínica</strong></p>
+
+        <div class="aviso">
+            <strong>Importante</strong>
             <ul>
                 <li>Recomendamos que você altere sua senha no primeiro acesso.</li>
                 <li>Não compartilhe suas credenciais com terceiros.</li>
@@ -94,13 +39,13 @@
                 <li th:unless="${tipoUsuario == 'Administrador'}">Em caso de dúvidas, entre em contato com o suporte.</li>
             </ul>
         </div>
-        
-        <p>Acesse a plataforma através do link: <a href="https://docclin.com.br/#/">DocClin</a></p>
+
+        <div class="acao">
+            <a href="https://docclin.com.br/#/" class="btn">Acessar o DocClin</a>
+        </div>
     </div>
-    
-    <div class="footer">
-        <p>Este é um email automático. Por favor, não responda.</p>
-        <p>© 2024 DocClin - Todos os direitos reservados</p>
-    </div>
+
+    <div th:replace="~{fragments/email-base :: rodape}"></div>
+</div>
 </body>
 </html>
