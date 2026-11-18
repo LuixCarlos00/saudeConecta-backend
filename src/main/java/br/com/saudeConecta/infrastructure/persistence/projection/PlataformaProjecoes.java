@@ -78,6 +78,12 @@ public final class PlataformaProjecoes {
         Long getId();
 
         LocalDateTime getRecebidoEm();
+
+        /** "CODIGO: detalhe" gravado em motivo_atencao; o código vai antes do ":". */
+        String getMotivoAtencao();
+
+        /** Nome da clínica do evento, ou null quando a assinatura não foi identificada. */
+        String getOrganizacaoNome();
     }
 
     /** Usuários ativos por perfil. */
