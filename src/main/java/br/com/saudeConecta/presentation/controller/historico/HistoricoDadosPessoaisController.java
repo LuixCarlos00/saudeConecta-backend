@@ -1,6 +1,13 @@
 package br.com.saudeConecta.presentation.controller.historico;
 
 import br.com.saudeConecta.application.historico.HistoricoDadosPessoaisService;
+import br.com.saudeConecta.application.historico.dto.HistoricoAlteracaoResponse;
+import br.com.saudeConecta.domain.historicodadospessoais.EntidadeTipo;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import br.com.saudeConecta.domain.historicodadospessoais.HistoricoDadosPessoais;
 import jdk.jfr.Description;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -20,6 +28,35 @@ import java.util.List;
 public class HistoricoDadosPessoaisController {
 
     private final HistoricoDadosPessoaisService historicoDadosPessoaisService;
+
+    /**
+     * Tela de auditoria do SUPER_ADMIN: alterações de dados cadastrais de todas as clínicas, paginadas,
+     * mais recentes primeiro. Todos os filtros são opcionais.
+     *
+     * @param organizacaoId clínica
+     * @param entidade      tipo de cadastro (PACIENTE, PROFISSIONAL, ADMIN, SECRETARIA, ORGANIZACAO, ENDERECO)
+     * @param de            primeiro dia (yyyy-MM-dd), inclusive
+     * @param ate           último dia (yyyy-MM-dd), inclusive
+     * @param campo         parte do nome do campo
+     * @param pageable      página (tamanho máximo 100)
+     * @return página de alterações
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Description("Auditoria paginada de alterações de dados cadastrais. Exclusivo para SUPER_ADMIN.")
+    public ResponseEntity<Page<HistoricoAlteracaoResponse>> pesquisar(
+            @RequestParam(required = false) Long organizacaoId,
+            @RequestParam(required = false) EntidadeTipo entidade,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate de,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate ate,
+            @RequestParam(required = false) String campo,
+            @PageableDefault(size = 20) Pageable pageable) {
+        try {
+            return ResponseEntity.ok(historicoDadosPessoaisService.pesquisar(organizacaoId, entidade, de, ate, campo, pageable));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
 
     /**
      * Busca os 10 registros mais recentes de histórico globalmente.

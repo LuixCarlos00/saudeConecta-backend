@@ -1,5 +1,6 @@
 package br.com.saudeConecta.infrastructure.persistence.repository;
 
+import java.util.Collection;
 import br.com.saudeConecta.infrastructure.persistence.projection.PlataformaProjecoes;
 import br.com.saudeConecta.domain.profissional.Profissional;
 import br.com.saudeConecta.domain.profissional.StatusProfissional;
@@ -164,4 +165,13 @@ public interface ProfissionalRepository extends JpaRepository<Profissional, Long
            "WHERE p.organizacao.id IN :organizacaoIds AND p.status = 'ATIVO' GROUP BY p.organizacao.id")
     List<PlataformaProjecoes.ProfissionaisPorClinica> contarAtivosPorOrganizacao(
             @Param("organizacaoIds") java.util.Collection<Long> organizacaoIds);
+
+    /**
+     * Nome do cadastro de cada usuário, em lote (auditoria do SUPER_ADMIN: evita um select por linha).
+     *
+     * @param usuarioIds ids de usuário
+     * @return pares [usuarioId, nome]
+     */
+    @Query("SELECT p.usuario.id, p.nome FROM Profissional p WHERE p.usuario.id IN :usuarioIds")
+    List<Object[]> buscarNomesPorUsuarioIds(@Param("usuarioIds") Collection<Long> usuarioIds);
 }
