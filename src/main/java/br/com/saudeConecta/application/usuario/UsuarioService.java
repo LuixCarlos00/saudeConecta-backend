@@ -311,6 +311,8 @@ public class UsuarioService   {
      * Troca a senha de um usuário, aplicando a regra de autorização do produto:
      * qualquer usuário troca a própria senha; o gestor (admin da organização)
      * troca a senha dos usuários da mesma organização, exceto a do ROOT.
+     * Quando é o próprio dono trocando no login dele, a exigência de troca de senha é encerrada;
+     * quando é o gestor definindo a senha de outra pessoa, ela passa a ser exigida no próximo login.
      *
      * @param id        ID do usuário que terá a senha alterada
      * @param novaSenha nova senha em texto puro (é criptografada antes de salvar)
@@ -330,6 +332,15 @@ public class UsuarioService   {
         validarPermissaoTrocaSenha(usuario);
         String senhaCriptografada = passwordEncoder.encode(novaSenha);
         usuario.setSenha(senhaCriptografada);
+        // Senha que o dono não escolheu é provisória. Definida pelo gestor para outra pessoa: o
+        // dono troca no próximo login. Só a troca feita pelo próprio dono, no login dele, encerra a
+        // exigência; o suporte via senha master (mesmo ID no token, mas sem a pendência) não encerra.
+        boolean ehOProprioDono = usuario.getId().equals(TenantContext.getCurrentUser());
+        if (!ehOProprioDono) {
+            usuario.setDeveTrocarSenha(true);
+        } else if (TenantContext.isTrocaSenhaPendente()) {
+            usuario.setDeveTrocarSenha(false);
+        }
         usuarioRepository.save(usuario);
         cacheEvictionService.evictPerfilUsuario(id);
         log.info("usuario.senha ok usuarioId={}", id);

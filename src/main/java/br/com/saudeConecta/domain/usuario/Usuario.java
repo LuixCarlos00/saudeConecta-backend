@@ -60,6 +60,13 @@ public class Usuario implements Serializable, UserDetails, TenantAware {
     @Column(name = "motivo_bloqueio", length = 20)
     private MotivoBloqueio motivoBloqueio;
 
+    /**
+     * Ligado no cadastro, quando a senha é gerada pelo sistema e enviada por e-mail; desligado
+     * quando o próprio usuário escolhe a senha. Enquanto ligado, o FiltroAcesso só libera a troca.
+     */
+    @Column(name = "deve_trocar_senha", nullable = false)
+    private boolean deveTrocarSenha;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         if (!isEnabled()) {

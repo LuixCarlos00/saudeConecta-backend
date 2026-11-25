@@ -7,6 +7,7 @@ public class TenantContext {
     
     private static final ThreadLocal<Long> CURRENT_TENANT = new ThreadLocal<>();
     private static final ThreadLocal<Long> CURRENT_USER = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> TROCA_SENHA_PENDENTE = new ThreadLocal<>();
     
     private TenantContext() {
     }
@@ -37,10 +38,28 @@ public class TenantContext {
         return CURRENT_USER.get();
     }
     
+    /**
+     * Marca que a requisição atual é de um primeiro acesso com a troca de senha pendente.
+     * Preenchido pelo FiltroAcesso (banco + token); a sessão da senha master nunca marca.
+     *
+     * @param pendente true quando o dono da conta ainda precisa trocar a senha recebida por e-mail
+     */
+    public static void setTrocaSenhaPendente(boolean pendente) {
+        TROCA_SENHA_PENDENTE.set(pendente);
+    }
+
+    /**
+     * @return true quando a requisição atual é de um primeiro acesso com troca de senha pendente
+     */
+    public static boolean isTrocaSenhaPendente() {
+        return Boolean.TRUE.equals(TROCA_SENHA_PENDENTE.get());
+    }
+
     public static void clear() {
         log.debug("tenant.contexto limpar");
         CURRENT_TENANT.remove();
         CURRENT_USER.remove();
+        TROCA_SENHA_PENDENTE.remove();
     }
     
     public static boolean hasTenant() {

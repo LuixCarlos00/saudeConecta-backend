@@ -54,6 +54,7 @@ class FiltroAcessoTest {
 
     @AfterEach
     void tearDown() {
+        br.com.saudeConecta.config.tenant.TenantContext.clear();
         SecurityContextHolder.clearContext();
     }
 
@@ -203,6 +204,93 @@ class FiltroAcessoTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(chain.getRequest()).isNotNull();
         verifyNoInteractions(acessoAssinaturaService);
+    }
+
+    private Usuario usuarioNoPrimeiroAcesso() {
+        Usuario u = usuario(TipoUsuarioNovo.CLINICO, StatusUsuario.ATIVO, ORG_ID);
+        u.setDeveTrocarSenha(true);
+        return u;
+    }
+
+    @Test
+    @DisplayName("Primeiro acesso: qualquer rota que não seja a troca de senha responde 403 TROCA_SENHA_OBRIGATORIA")
+    void primeiroAcessoBloqueiaOutrasRotas() throws Exception {
+        when(tokenService.getSubject(TOKEN)).thenReturn(LOGIN);
+        when(usuarioRepository.findByLogin(LOGIN)).thenReturn(usuarioNoPrimeiroAcesso());
+        when(tokenService.exigeTrocaSenha(TOKEN)).thenReturn(true);
+
+        filtroAcesso.doFilter(requisicao("GET", "/consultas"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("TROCA_SENHA_OBRIGATORIA");
+        assertThat(chain.getRequest()).isNull();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("Primeiro acesso: a troca da própria senha passa, mesmo com a clínica suspensa")
+    void primeiroAcessoLiberaTrocaDaPropriaSenha() throws Exception {
+        when(tokenService.getSubject(TOKEN)).thenReturn(LOGIN);
+        when(usuarioRepository.findByLogin(LOGIN)).thenReturn(usuarioNoPrimeiroAcesso());
+        when(tokenService.exigeTrocaSenha(TOKEN)).thenReturn(true);
+
+        filtroAcesso.doFilter(requisicao("PUT", "/usuario/trocarSenharUsuariobyOrg/1"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chain.getRequest()).isNotNull();
+        // Avisa o service de que é o dono trocando no próprio login (é isso que encerra o primeiro acesso)
+        assertThat(br.com.saudeConecta.config.tenant.TenantContext.isTrocaSenhaPendente()).isTrue();
+        verifyNoInteractions(acessoAssinaturaService);
+    }
+
+    @Test
+    @DisplayName("Já trocou a senha mas ainda usa o token antigo (com a marca): acesso normal, sem consultar o token")
+    void tokenAntigoDepoisDaTrocaNaoBloqueia() throws Exception {
+        when(tokenService.getSubject(TOKEN)).thenReturn(LOGIN);
+        when(usuarioRepository.findByLogin(LOGIN))
+                .thenReturn(usuario(TipoUsuarioNovo.CLINICO, StatusUsuario.ATIVO, ORG_ID));
+        when(acessoAssinaturaService.organizacaoPermiteAcesso(ORG_ID)).thenReturn(true);
+
+        filtroAcesso.doFilter(requisicao("GET", "/consultas"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chain.getRequest()).isNotNull();
+        verify(tokenService, never()).exigeTrocaSenha(TOKEN);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "PUT /usuario/trocarSenharUsuariobyOrg/2",
+            "PUT /usuario/trocarSenharUsuariobyOrg/11",
+            "GET /usuario/trocarSenharUsuariobyOrg/1",
+            "PUT /usuario/trocarSenharUsuariobyOrg/1/extra"
+    })
+    @DisplayName("Primeiro acesso: senha de outro usuário, outro verbo ou rota parecida continuam bloqueados")
+    void primeiroAcessoNaoLiberaRotasParecidas(String metodoERota) throws Exception {
+        String[] partes = metodoERota.split(" ");
+        when(tokenService.getSubject(TOKEN)).thenReturn(LOGIN);
+        when(usuarioRepository.findByLogin(LOGIN)).thenReturn(usuarioNoPrimeiroAcesso());
+        when(tokenService.exigeTrocaSenha(TOKEN)).thenReturn(true);
+
+        filtroAcesso.doFilter(requisicao(partes[0], partes[1]), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
+    @DisplayName("Primeiro acesso + token da senha master (sem a marca): acesso normal, sem exigir troca")
+    void tokenDaSenhaMasterNaoExigeTroca() throws Exception {
+        when(tokenService.getSubject(TOKEN)).thenReturn(LOGIN);
+        when(usuarioRepository.findByLogin(LOGIN)).thenReturn(usuarioNoPrimeiroAcesso());
+        when(tokenService.exigeTrocaSenha(TOKEN)).thenReturn(false);
+        when(acessoAssinaturaService.organizacaoPermiteAcesso(ORG_ID)).thenReturn(true);
+
+        filtroAcesso.doFilter(requisicao("GET", "/consultas"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chain.getRequest()).isNotNull();
+        assertThat(br.com.saudeConecta.config.tenant.TenantContext.isTrocaSenhaPendente()).isFalse();
     }
 
     @Test

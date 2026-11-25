@@ -293,6 +293,19 @@ class RecuperacaoSenhaServiceTest {
         }
 
         @Test
+        @DisplayName("Primeiro acesso: redefinir pelo link encerra a exigência de troca")
+        void redefinirEncerraPrimeiroAcesso() {
+            admin.setDeveTrocarSenha(true);
+            TokenRecuperacaoSenha registro = new TokenRecuperacaoSenha(admin, "h", AGORA.minusMinutes(5), AGORA.plusMinutes(25));
+            when(tokenRepository.findByTokenHashParaUso(RecuperacaoSenhaService.hash("tok"))).thenReturn(Optional.of(registro));
+            when(passwordEncoder.encode("novaSenha123")).thenReturn("hashNovo");
+
+            service.redefinir("tok", "novaSenha123");
+
+            assertThat(admin.isDeveTrocarSenha()).isFalse();
+        }
+
+        @Test
         @DisplayName("Link já usado: 400 e a senha não muda (reuso do mesmo link)")
         void linkJaUsado() {
             TokenRecuperacaoSenha registro = new TokenRecuperacaoSenha(admin, "h", AGORA.minusMinutes(5), AGORA.plusMinutes(25));

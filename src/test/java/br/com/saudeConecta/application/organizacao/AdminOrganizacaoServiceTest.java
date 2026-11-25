@@ -175,7 +175,8 @@ class AdminOrganizacaoServiceTest {
 
             assertThat(resultado).isNotNull();
             assertThat(resultado.getId()).isEqualTo(ADMIN_ID);
-            verify(usuarioRepository).save(any(Usuario.class));
+            // Senha gerada pelo sistema: o usuário nasce obrigado a trocá-la no primeiro acesso
+            verify(usuarioRepository).save(argThat(Usuario::isDeveTrocarSenha));
             verify(adminOrganizacaoRepository).save(any(AdminOrganizacao.class));
             verify(emailNotificacaoService).enviarCredenciaisAdministrador(
                     eq("novo@teste.com"), eq("Admin Novo"), any(),
@@ -543,7 +544,8 @@ class AdminOrganizacaoServiceTest {
             assertThat(resultado).isNotNull();
             verify(enderecoRepository).save(any(Endereco.class));
             verify(organizacaoRepository).save(any(Organizacao.class));
-            verify(usuarioRepository).save(any(Usuario.class));
+            // Senha gerada pelo sistema: o usuário nasce obrigado a trocá-la no primeiro acesso
+            verify(usuarioRepository).save(argThat(Usuario::isDeveTrocarSenha));
             verify(adminOrganizacaoRepository).save(any(AdminOrganizacao.class));
             verify(assinaturaTenantService).assinar(ORG_ID, 1L, false);
             verify(configuracaoGraficoDashboardService).inicializarParaNovoUsuario(any());
@@ -596,7 +598,8 @@ class AdminOrganizacaoServiceTest {
             assertThat(resultado).isNotNull();
             verify(enderecoRepository).save(any(Endereco.class));
             verify(organizacaoRepository).save(any(Organizacao.class));
-            verify(usuarioRepository).save(any(Usuario.class));
+            // Senha gerada pelo sistema: o usuário nasce obrigado a trocá-la no primeiro acesso
+            verify(usuarioRepository).save(argThat(Usuario::isDeveTrocarSenha));
             verify(adminOrganizacaoRepository).save(any(AdminOrganizacao.class));
             verify(assinaturaTenantService).assinar(ORG_ID, 1L, false);
             verify(configuracaoGraficoDashboardService).inicializarParaNovoUsuario(any());

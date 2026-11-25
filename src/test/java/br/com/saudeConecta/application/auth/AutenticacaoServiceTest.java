@@ -71,7 +71,7 @@ class AutenticacaoServiceTest {
         when(usuarioRepository.findByTipoUsuarioNovoAndOrganizacaoIsNull(TipoUsuarioNovo.ROOT)).thenReturn(root());
         when(passwordEncoder.matches("senha-master", "hash-root")).thenReturn(true);
         when(usuarioRepository.findUsuarioByLogin("11122233344")).thenReturn(alvo);
-        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean())).thenReturn("jwt");
 
         ResultadoLogin resultado = service.autenticar(new DadosLoginUsuario("11122233344", "senha-master", null), "203.0.113.9");
 
@@ -103,7 +103,7 @@ class AutenticacaoServiceTest {
         var dados = new DadosLoginUsuario("alvo", "senha-master", null);
         assertThatThrownBy(() -> service.autenticar(dados, "ip"))
                 .isInstanceOf(BadCredentialsException.class);
-        verify(tokenService, never()).gerarToken(any(Usuario.class), any(), any(), any(), any());
+        verify(tokenService, never()).gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -112,7 +112,7 @@ class AutenticacaoServiceTest {
         when(usuarioRepository.findByTipoUsuarioNovoAndOrganizacaoIsNull(TipoUsuarioNovo.ROOT)).thenReturn(root());
         when(passwordEncoder.matches("senha-master", "hash-root")).thenReturn(true);
         when(authenticationManager.authenticate(any())).thenReturn(new UsernamePasswordAuthenticationToken(root(), null));
-        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean())).thenReturn("jwt");
 
         assertThat(service.autenticar(new DadosLoginUsuario("root", "senha-master", null), "ip").isAutenticado()).isTrue();
         verify(usuarioRepository, never()).findUsuarioByLogin(any());
@@ -124,7 +124,7 @@ class AutenticacaoServiceTest {
     void semRoot() {
         Usuario usuario = Usuario.builder().id(7L).login("u").tipoUsuarioNovo(TipoUsuarioNovo.ROOT).build();
         when(authenticationManager.authenticate(any())).thenReturn(new UsernamePasswordAuthenticationToken(usuario, null));
-        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean())).thenReturn("jwt");
 
         assertThat(service.autenticar(new DadosLoginUsuario("u", "s", null), "ip").isAutenticado()).isTrue();
         verifyNoInteractions(auditoriaAcessoMasterRepository, passwordEncoder);
@@ -134,7 +134,7 @@ class AutenticacaoServiceTest {
     @DisplayName("CPF com máscara no login normal chega ao AuthenticationManager só com dígitos")
     void loginNormalComCpfMascarado() {
         loginNormalDe(Usuario.builder().id(7L).login("10740759000").tipoUsuarioNovo(TipoUsuarioNovo.ROOT).build());
-        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean())).thenReturn("jwt");
 
         service.autenticar(new DadosLoginUsuario(" 107.407.590-00 ", "minha-senha", null), "ip");
 
@@ -164,7 +164,7 @@ class AutenticacaoServiceTest {
     @DisplayName("Login normal não grava auditoria de senha master")
     void loginNormalNaoAudita() {
         loginNormalDe(Usuario.builder().id(7L).login("u").tipoUsuarioNovo(TipoUsuarioNovo.ROOT).build());
-        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean())).thenReturn("jwt");
 
         service.autenticar(new DadosLoginUsuario("u", "minha-senha", null), "ip");
 
@@ -200,9 +200,50 @@ class AutenticacaoServiceTest {
         loginNormalDe(gestorDaClinica(10L));
         when(assinaturaTenantRepository.findAssinaturaVigenteByOrganizacaoId(10L))
                 .thenReturn(Optional.of(AssinaturaTenant.builder().status(StatusAssinatura.TRIAL).build()));
-        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean())).thenReturn("jwt");
 
         assertThat(service.autenticar(new DadosLoginUsuario("gestor", "s", "  "), "ip").isAutenticado()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Primeiro acesso: login normal de quem deve trocar a senha sai com a marca no token")
+    void primeiroAcessoMarcaOToken() {
+        Usuario gestor = gestorDaClinica(10L);
+        gestor.setDeveTrocarSenha(true);
+        loginNormalDe(gestor);
+        when(assinaturaTenantRepository.findAssinaturaVigenteByOrganizacaoId(10L))
+                .thenReturn(Optional.of(AssinaturaTenant.builder().status(StatusAssinatura.TRIAL).build()));
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), eq(true))).thenReturn("jwt");
+
+        assertThat(service.autenticar(new DadosLoginUsuario("gestor", "s", null), "ip").token()).isEqualTo("jwt");
+    }
+
+    @Test
+    @DisplayName("Quem já trocou a senha recebe o token sem a marca de troca")
+    void semPendenciaNaoMarcaOToken() {
+        loginNormalDe(gestorDaClinica(10L));
+        when(assinaturaTenantRepository.findAssinaturaVigenteByOrganizacaoId(10L))
+                .thenReturn(Optional.of(AssinaturaTenant.builder().status(StatusAssinatura.TRIAL).build()));
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), eq(false))).thenReturn("jwt");
+
+        assertThat(service.autenticar(new DadosLoginUsuario("gestor", "s", null), "ip").token()).isEqualTo("jwt");
+    }
+
+    @Test
+    @DisplayName("Senha master em usuário no primeiro acesso: token SEM a marca (o suporte não troca a senha do dono)")
+    void senhaMasterNaoExigeTroca() {
+        Usuario alvo = gestorDaClinica(10L);
+        alvo.setStatus(br.com.saudeConecta.domain.usuario.StatusUsuario.ATIVO);
+        alvo.setDeveTrocarSenha(true);
+        when(usuarioRepository.findByTipoUsuarioNovoAndOrganizacaoIsNull(TipoUsuarioNovo.ROOT)).thenReturn(root());
+        when(passwordEncoder.matches("senha-master", "hash-root")).thenReturn(true);
+        when(usuarioRepository.findUsuarioByLogin("gestor")).thenReturn(alvo);
+        when(assinaturaTenantRepository.findAssinaturaVigenteByOrganizacaoId(10L))
+                .thenReturn(Optional.of(AssinaturaTenant.builder().status(StatusAssinatura.TRIAL).build()));
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), eq(false))).thenReturn("jwt");
+
+        assertThat(service.autenticar(new DadosLoginUsuario("gestor", "senha-master", null), "ip").token()).isEqualTo("jwt");
+        verify(tokenService, never()).gerarToken(any(Usuario.class), any(), any(), any(), any(), eq(true));
     }
 
     @Test
@@ -211,7 +252,7 @@ class AutenticacaoServiceTest {
         loginNormalDe(gestorDaClinica(10L));
         when(assinaturaTenantRepository.findAssinaturaVigenteByOrganizacaoId(10L))
                 .thenReturn(Optional.of(AssinaturaTenant.builder().status(StatusAssinatura.SUSPENSA).build()));
-        when(tokenService.gerarToken(any(Usuario.class), eq(10L), any(), eq("GESTOR"), isNull())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), eq(10L), any(), eq("GESTOR"), isNull(), anyBoolean())).thenReturn("jwt");
 
         assertThat(service.autenticar(new DadosLoginUsuario("gestor", "s", null), "ip").token()).isEqualTo("jwt");
     }
@@ -251,7 +292,7 @@ class AutenticacaoServiceTest {
         when(assinaturaTenantRepository.findAssinaturaVigenteByOrganizacaoId(10L))
                 .thenReturn(Optional.of(AssinaturaTenant.builder().status(StatusAssinatura.ATIVA).build()));
         when(adminOrganizacaoRepository.findByUsuario_Id(7L)).thenThrow(new RuntimeException("banco fora"));
-        when(tokenService.gerarToken(any(Usuario.class), any(), eq("Usuario"), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), eq("Usuario"), any(), any(), anyBoolean())).thenReturn("jwt");
 
         assertThat(service.autenticar(new DadosLoginUsuario("gestor", "s", null), "ip").token()).isEqualTo("jwt");
     }
@@ -279,7 +320,7 @@ class AutenticacaoServiceTest {
         when(usuarioRepository.findByTipoUsuarioNovoAndOrganizacaoIsNull(TipoUsuarioNovo.ROOT)).thenReturn(root());
         when(passwordEncoder.matches("senha-master", "hash-root")).thenReturn(true);
         when(usuarioRepository.findUsuarioByLogin("11122233344")).thenReturn(alvo);
-        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any())).thenReturn("jwt");
+        when(tokenService.gerarToken(any(Usuario.class), any(), any(), any(), any(), anyBoolean())).thenReturn("jwt");
 
         assertThat(service.autenticar(new DadosLoginUsuario("11122233344", "senha-master", null), "ip").token())
                 .isEqualTo("jwt");

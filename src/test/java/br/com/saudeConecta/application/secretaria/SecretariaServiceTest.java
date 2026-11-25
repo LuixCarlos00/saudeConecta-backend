@@ -234,7 +234,8 @@ class SecretariaServiceTest {
 
             assertThat(resultado).isNotNull();
             assertThat(resultado.getId()).isEqualTo(SEC_ID);
-            verify(usuarioRepository).save(any(Usuario.class));
+            // Senha gerada pelo sistema: o usuário nasce obrigado a trocá-la no primeiro acesso
+            verify(usuarioRepository).save(argThat(Usuario::isDeveTrocarSenha));
             verify(secretariaRepository).save(any(Secretaria.class));
             verify(emailNotificacaoService).enviarCredenciaisSecretaria(
                     eq("nova@sec.com"), eq("Nova Sec"), eq("12345678900"),

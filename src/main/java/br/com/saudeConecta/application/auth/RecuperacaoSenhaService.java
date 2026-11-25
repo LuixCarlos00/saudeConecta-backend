@@ -156,6 +156,8 @@ public class RecuperacaoSenhaService {
             throw tokenInvalido("REDEFINIR_USUARIO_INATIVO");
         }
         usuario.setSenha(passwordEncoder.encode(novaSenha));
+        // O link chega no e-mail do dono: a senha escolhida aqui já é a dele
+        usuario.setDeveTrocarSenha(false);
         usuarioRepository.save(usuario);
 
         registro.marcarUsado(agora);
