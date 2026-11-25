@@ -25,6 +25,7 @@ public class TokenService {
     private static final String CLAIM_NOME = "nome";
     private static final String CLAIM_PERFIL = "perfil";
     private static final String CLAIM_TIPO_PROFISSIONAL = "tipoProfissional";
+    private static final String CLAIM_DEVE_TROCAR_SENHA = "deveTrocarSenha";
 
     @Value("${api.security.token.secret}")
     private String secret;
@@ -48,10 +49,11 @@ public class TokenService {
      * @param nome             nome exibido do usuario
      * @param perfil           perfil geral (GESTOR, CLINICO, ASSISTENTE)
      * @param tipoProfissional especializacao do clinico (MEDICO, DENTISTA) ou null
+     * @param deveTrocarSenha  true quando este login so pode trocar a senha (primeiro acesso)
      * @return token JWT assinado
      */
     public String gerarToken(@NotNull Usuario usuario, Long organizacaoId, String nome, String perfil,
-                             String tipoProfissional) {
+                             String tipoProfissional, boolean deveTrocarSenha) {
         String autorizacao = usuario.getAuthorities().toString();
         return JWT.create()
                 .withIssuer(ISSUER)
@@ -62,6 +64,7 @@ public class TokenService {
                 .withClaim(CLAIM_NOME, nome)
                 .withClaim(CLAIM_PERFIL, perfil)
                 .withClaim(CLAIM_TIPO_PROFISSIONAL, tipoProfissional)
+                .withClaim(CLAIM_DEVE_TROCAR_SENHA, deveTrocarSenha)
                 .withAudience(autorizacao)
                 .withExpiresAt(calcularDataExpiracao())
                 .sign(Algorithm.HMAC256(secret));
@@ -112,6 +115,26 @@ public class TokenService {
         } catch (Exception e) {
             log.warn("auth.token negado motivo=CLAIM_INVALIDA claim=userId causa={}", e.getClass().getSimpleName());
             return null;
+        }
+    }
+
+    /**
+     * Diz se o token foi emitido com a troca de senha pendente. O acesso do suporte pela senha
+     * master sai sem essa marca, para o ROOT não ser obrigado a trocar a senha de outra pessoa.
+     *
+     * Falha fechada: só a claim explícita {@code false} libera. Token sem a claim ou ilegível
+     * conta como pendente, para um jeito novo de emitir token não furar a exigência sem querer
+     * (quem não deve trocar a senha nem chega aqui: o FiltroAcesso consulta o banco antes).
+     *
+     * @param token token já validado pelo FiltroAcesso
+     * @return false só quando a claim existe e vale false; nos demais casos, true
+     */
+    public boolean exigeTrocaSenha(String token) {
+        try {
+            return !Boolean.FALSE.equals(decodeToken(token).getClaim(CLAIM_DEVE_TROCAR_SENHA).asBoolean());
+        } catch (Exception e) {
+            log.warn("auth.token negado motivo=CLAIM_INVALIDA claim=deveTrocarSenha causa={}", e.getClass().getSimpleName());
+            return true;
         }
     }
 

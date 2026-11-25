@@ -90,7 +90,7 @@ class TokenServiceTest {
         @Test
         @DisplayName("Deve gerar token com organizacaoId embutido")
         void deveGerarTokenComOrganizacaoId() {
-            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO");
+            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO", false);
             Long orgId = tokenService.getOrganizacaoIdFromToken(token);
 
             assertThat(orgId).isEqualTo(1L);
@@ -99,7 +99,7 @@ class TokenServiceTest {
         @Test
         @DisplayName("Deve gerar token com userId embutido")
         void deveGerarTokenComUserId() {
-            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO");
+            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO", false);
             Long userId = tokenService.getUserIdFromToken(token);
 
             assertThat(userId).isEqualTo(10L);
@@ -108,7 +108,7 @@ class TokenServiceTest {
         @Test
         @DisplayName("Deve gerar token com tipoUsuario embutido")
         void deveGerarTokenComTipoUsuario() {
-            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO");
+            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO", false);
             Integer tipo = JWT.decode(token).getClaim("tipoUsuario").asInt();
 
             assertThat(tipo).isEqualTo(TipoUsuarioNovo.CLINICO.getCodigo());
@@ -117,7 +117,7 @@ class TokenServiceTest {
         @Test
         @DisplayName("Deve gerar token com nome embutido")
         void deveGerarTokenComNome() {
-            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO");
+            String token = tokenService.gerarToken(usuario, 1L, "Dr. Teste", "CLINICO", "MEDICO", false);
             String nome = JWT.decode(token).getClaim("nome").asString();
 
             assertThat(nome).isEqualTo("Dr. Teste");
@@ -185,6 +185,39 @@ class TokenServiceTest {
     // ========== expiração ==========
 
     @Nested
+    @DisplayName("exigeTrocaSenha (primeiro acesso)")
+    class ExigeTrocaSenha {
+
+        @Test
+        @DisplayName("Token emitido com a troca pendente: true")
+        void tokenComTrocaPendente() {
+            String token = tokenService.gerarToken(usuario, 1L, "Nome", "CLINICO", null, true);
+
+            assertThat(tokenService.exigeTrocaSenha(token)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Token emitido sem pendência (ou pela senha master): false")
+        void tokenSemTrocaPendente() {
+            String token = tokenService.gerarToken(usuario, 1L, "Nome", "CLINICO", null, false);
+
+            assertThat(tokenService.exigeTrocaSenha(token)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Token sem a claim: true (falha fechada)")
+        void tokenSemAClaim() {
+            assertThat(tokenService.exigeTrocaSenha(tokenService.gerarToken(usuario))).isTrue();
+        }
+
+        @Test
+        @DisplayName("Token ilegível: true (falha fechada), sem estourar")
+        void tokenIlegivel() {
+            assertThat(tokenService.exigeTrocaSenha("nao-e-um-jwt")).isTrue();
+        }
+    }
+
+    @Nested
     @DisplayName("4.3 - expiração do token independe do fuso do servidor")
     class Expiracao {
 
@@ -196,7 +229,7 @@ class TokenServiceTest {
                 TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
                 Instant antes = Instant.now();
 
-                String token = tokenService.gerarToken(usuario, 1L, "Nome", "CLINICO", null);
+                String token = tokenService.gerarToken(usuario, 1L, "Nome", "CLINICO", null, false);
 
                 Instant expiracao = JWT.decode(token).getExpiresAtAsInstant();
                 assertThat(Duration.between(antes, expiracao))

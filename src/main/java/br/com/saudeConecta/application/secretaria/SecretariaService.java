@@ -150,6 +150,7 @@ public class SecretariaService {
         Usuario usuario = Usuario.builder()
                 .login(cpfLimpo)
                 .senha(senhaCriptografada)
+                .deveTrocarSenha(true)
                 .tipoUsuarioNovo(TipoUsuarioNovo.ASSISTENTE)
                 .organizacao(organizacao)
                 .status(StatusUsuario.ATIVO)

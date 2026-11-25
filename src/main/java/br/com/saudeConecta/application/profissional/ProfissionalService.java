@@ -137,6 +137,7 @@ public class ProfissionalService {
         Usuario usuario = Usuario.builder()
                 .login(cpfLimpo)
                 .senha(senhaCriptografada)
+                .deveTrocarSenha(true)
                 .tipoUsuarioNovo(TipoUsuarioNovo.CLINICO)
                 .organizacao(organizacao)
                 .status(StatusUsuario.ATIVO)

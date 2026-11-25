@@ -4,6 +4,7 @@ package br.com.saudeConecta.config.security;
 import br.com.saudeConecta.application.assinatura.AcessoAssinaturaService;
 import br.com.saudeConecta.config.logging.MascaraLog;
 import br.com.saudeConecta.config.logging.MdcChaves;
+import br.com.saudeConecta.config.tenant.TenantContext;
 import br.com.saudeConecta.domain.usuario.Usuario;
 import br.com.saudeConecta.infrastructure.persistence.repository.UsuarioRepository;
 import br.com.saudeConecta.presentation.erro.ErrorResponse;
@@ -48,14 +49,18 @@ public class FiltroAcesso extends OncePerRequestFilter {
             "/cobrancas/pendente-atual"
     );
 
+    /** Única rota que o primeiro acesso libera: a troca da própria senha (o ID do dono vai no fim). */
+    private static final String ROTA_TROCA_SENHA = "/usuario/trocarSenharUsuariobyOrg/";
+
     private final TokenService tokenService;
     private final UsuarioRepository usuarioRepository;
     private final AcessoAssinaturaService acessoAssinaturaService;
 
     /**
      * Autentica a requisição pelo JWT e revalida, a cada chamada, o que pode ter mudado depois
-     * da emissão do token: usuário apagado ou bloqueado (401) e assinatura da clínica sem
-     * acesso (403). Sem isso o token continuaria valendo até expirar (24h).
+     * da emissão do token: usuário apagado ou bloqueado (401), troca de senha do primeiro
+     * acesso pendente (403) e assinatura da clínica sem acesso (403). Sem isso o token
+     * continuaria valendo até expirar (24h).
      */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, @NotNull FilterChain filterChain) throws ServletException, IOException {
@@ -95,7 +100,21 @@ public class FiltroAcesso extends OncePerRequestFilter {
                 MDC.put(MdcChaves.TENANT_ID, String.valueOf(usuario.getOrganizacaoId()));
             }
 
-            if (assinaturaBloqueiaAcesso(usuario, request)) {
+            // Antes da assinatura: quem está no primeiro acesso de uma clínica suspensa precisa
+            // conseguir trocar a senha para depois chegar à tela de pagamento.
+            boolean trocaSenhaPendente = usuario.isDeveTrocarSenha() && tokenService.exigeTrocaSenha(tokenJwt);
+            // O service da troca só encerra o primeiro acesso quando esta marca está ligada: a sessão
+            // da senha master (token sem a pendência) não consegue definir a senha definitiva do dono.
+            TenantContext.setTrocaSenhaPendente(trocaSenhaPendente);
+            if (trocaSenhaPendente && !ehTrocaDaPropriaSenha(usuario, request)) {
+                log.warn("auth.acesso negado motivo=TROCA_SENHA_OBRIGATORIA usuarioId={} metodo={} rota={}",
+                        usuario.getId(), request.getMethod(), request.getRequestURI());
+                responderErro(request, response, HttpServletResponse.SC_FORBIDDEN, "TROCA_SENHA_OBRIGATORIA",
+                        "Troque a senha provisoria para continuar.");
+                return;
+            }
+
+            if (!trocaSenhaPendente && assinaturaBloqueiaAcesso(usuario, request)) {
                 log.warn("auth.acesso negado motivo=ASSINATURA_SEM_ACESSO usuarioId={} organizacaoId={} metodo={} rota={}",
                         usuario.getId(), usuario.getOrganizacaoId(), request.getMethod(), request.getRequestURI());
                 responderErro(request, response, HttpServletResponse.SC_FORBIDDEN, "PLANO_SEM_ACESSO",
@@ -109,6 +128,16 @@ public class FiltroAcesso extends OncePerRequestFilter {
 
 
         filterChain.doFilter(request,response);
+    }
+
+    /**
+     * @param usuario usuário do token
+     * @param request requisição atual
+     * @return true quando a chamada é a troca da senha do próprio usuário
+     */
+    private boolean ehTrocaDaPropriaSenha(Usuario usuario, HttpServletRequest request) {
+        return "PUT".equalsIgnoreCase(request.getMethod())
+                && (ROTA_TROCA_SENHA + usuario.getId()).equals(request.getRequestURI());
     }
 
     /**

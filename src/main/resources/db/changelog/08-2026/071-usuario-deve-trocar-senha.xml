@@ -1,0 +1,27 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ================================================================ -->
+    <!-- TROCA DE SENHA OBRIGATORIA NO PRIMEIRO ACESSO                    -->
+    <!-- Todo cadastro novo recebe uma senha aleatoria por e-mail. Essa   -->
+    <!-- senha passa a valer so para entrar e escolher a definitiva: o    -->
+    <!-- marcador fica ligado ate o proprio usuario trocar a senha.       -->
+    <!-- Quem ja existe fica com FALSE: ninguem e travado no deploy.      -->
+    <!-- Retrocompativel: coluna com DEFAULT; a versao anterior a ignora. -->
+    <!-- ================================================================ -->
+    <changeSet id="071-001-usuario-deve-trocar-senha" author="equipe-sentinela">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="usuarios" columnName="deve_trocar_senha"/></not>
+        </preConditions>
+        <comment>Marcador de troca de senha obrigatoria no primeiro acesso</comment>
+
+        <addColumn tableName="usuarios">
+            <column name="deve_trocar_senha" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

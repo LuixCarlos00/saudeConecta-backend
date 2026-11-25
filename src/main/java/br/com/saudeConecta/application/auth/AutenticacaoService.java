@@ -71,7 +71,7 @@ public class AutenticacaoService {
         // Tenta autenticar via senha master (SUPER_ADMIN impersonando outro usuario)
         Usuario usuarioMaster = autenticarComSenhaMaster(login, dados.senha(), ip);
         if (usuarioMaster != null) {
-            return gerarResultadoLogin(usuarioMaster);
+            return gerarResultadoLogin(usuarioMaster, true);
         }
 
         // Fluxo normal de autenticacao
@@ -96,7 +96,7 @@ public class AutenticacaoService {
             }
         }
 
-        return gerarResultadoLogin(usuario);
+        return gerarResultadoLogin(usuario, false);
     }
 
     /**
@@ -167,10 +167,12 @@ public class AutenticacaoService {
     /**
      * Confere o plano da clínica e gera o token JWT do usuário já autenticado.
      *
-     * @param usuario Usuario autenticado
+     * @param usuario        Usuario autenticado
+     * @param viaSenhaMaster true quando é o ROOT entrando como o usuário; nesse caso o token sai
+     *                       sem a troca de senha pendente, senão o suporte trocaria a senha do dono
      * @return token, ou recusa quando a clínica não tem plano que permita o acesso
      */
-    private ResultadoLogin gerarResultadoLogin(Usuario usuario) {
+    private ResultadoLogin gerarResultadoLogin(Usuario usuario, boolean viaSenhaMaster) {
         Long organizacaoId = usuario.getOrganizacaoId();
 
         if (!usuario.isRoot() && organizacaoId != null) {
@@ -199,9 +201,11 @@ public class AutenticacaoService {
         String nomeUsuario = getNomeUsuario(usuario);
         String tipoProfissional = usuario.isClinico() ? getProfissional(usuario) : null;
         String tipoUsuario = usuario.getTipoUsuarioNovo() != null ? usuario.getTipoUsuarioNovo().name() : "GESTOR";
-        String tokenJWT = tokenService.gerarToken(usuario, organizacaoId, nomeUsuario, tipoUsuario, tipoProfissional);
-        log.info("auth.login ok usuarioId={} organizacaoId={} tipo={} tipoProfissional={}",
-                usuario.getId(), organizacaoId, tipoUsuario, tipoProfissional);
+        boolean deveTrocarSenha = usuario.isDeveTrocarSenha() && !viaSenhaMaster;
+        String tokenJWT = tokenService.gerarToken(usuario, organizacaoId, nomeUsuario, tipoUsuario, tipoProfissional,
+                deveTrocarSenha);
+        log.info("auth.login ok usuarioId={} organizacaoId={} tipo={} tipoProfissional={} deveTrocarSenha={}",
+                usuario.getId(), organizacaoId, tipoUsuario, tipoProfissional, deveTrocarSenha);
 
         return ResultadoLogin.autenticado(tokenJWT);
     }

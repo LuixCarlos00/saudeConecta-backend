@@ -150,6 +150,77 @@ class UsuarioServiceTest {
         }
 
         @Test
+        @DisplayName("Primeiro acesso: trocar a própria senha encerra a exigência de troca")
+        void trocarPropriaSenhaEncerraPrimeiroAcesso() {
+            usuario.setDeveTrocarSenha(true);
+            logarComo(USUARIO_ID, ORG_ID);
+            TenantContext.setTrocaSenhaPendente(true);
+            when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+            when(passwordEncoder.encode("novaSenha123")).thenReturn("encodedNovaSenha");
+
+            usuarioService.trocarSenharUsuariobyOrg(USUARIO_ID, "novaSenha123");
+
+            assertThat(usuario.isDeveTrocarSenha()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Primeiro acesso: troca feita na sessão da senha master NÃO encerra a exigência do dono")
+        void trocaPelaSenhaMasterMantemPrimeiroAcesso() {
+            // Senha master: o token carrega o ID do próprio usuário, mas sem a pendência de troca
+            usuario.setDeveTrocarSenha(true);
+            logarComo(USUARIO_ID, ORG_ID);
+            when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+            when(passwordEncoder.encode("novaSenha123")).thenReturn("encodedNovaSenha");
+
+            usuarioService.trocarSenharUsuariobyOrg(USUARIO_ID, "novaSenha123");
+
+            assertThat(usuario.isDeveTrocarSenha()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Senha definida pelo gestor para quem já tinha a própria: o dono volta a ser obrigado a trocar")
+        void senhaDefinidaPeloGestorExigeTroca() {
+            Usuario gestor = criarUsuario(GESTOR_ID, TipoUsuarioNovo.GESTOR, organizacao);
+            logarComo(GESTOR_ID, ORG_ID);
+            when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+            when(usuarioRepository.findById(GESTOR_ID)).thenReturn(Optional.of(gestor));
+            when(passwordEncoder.encode("novaSenha123")).thenReturn("encodedNovaSenha");
+
+            usuarioService.trocarSenharUsuariobyOrg(USUARIO_ID, "novaSenha123");
+
+            assertThat(usuario.isDeveTrocarSenha()).isTrue();
+            assertThat(gestor.isDeveTrocarSenha()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Usuário sem pendência que troca a própria senha continua sem pendência")
+        void trocarPropriaSenhaSemPendenciaNaoCriaExigencia() {
+            logarComo(USUARIO_ID, ORG_ID);
+            when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+            when(passwordEncoder.encode("novaSenha123")).thenReturn("encodedNovaSenha");
+
+            usuarioService.trocarSenharUsuariobyOrg(USUARIO_ID, "novaSenha123");
+
+            assertThat(usuario.isDeveTrocarSenha()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Primeiro acesso: senha trocada pelo gestor NÃO encerra a exigência do dono")
+        void senhaTrocadaPeloGestorMantemPrimeiroAcesso() {
+            usuario.setDeveTrocarSenha(true);
+            Usuario gestor = criarUsuario(GESTOR_ID, TipoUsuarioNovo.GESTOR, organizacao);
+            logarComo(GESTOR_ID, ORG_ID);
+            when(usuarioRepository.findById(USUARIO_ID)).thenReturn(Optional.of(usuario));
+            when(usuarioRepository.findById(GESTOR_ID)).thenReturn(Optional.of(gestor));
+            when(passwordEncoder.encode("novaSenha123")).thenReturn("encodedNovaSenha");
+
+            usuarioService.trocarSenharUsuariobyOrg(USUARIO_ID, "novaSenha123");
+
+            assertThat(usuario.getSenha()).isEqualTo("encodedNovaSenha");
+            assertThat(usuario.isDeveTrocarSenha()).isTrue();
+        }
+
+        @Test
         @DisplayName("Gestor troca a senha de um usuário da própria organização")
         void gestorDeveTrocarSenhaDeUsuarioDaMesmaOrganizacao() {
             Usuario gestor = criarUsuario(GESTOR_ID, TipoUsuarioNovo.GESTOR, organizacao);

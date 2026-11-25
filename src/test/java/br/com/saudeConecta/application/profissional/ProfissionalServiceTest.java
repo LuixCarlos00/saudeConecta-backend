@@ -146,6 +146,8 @@ class ProfissionalServiceTest {
 
             assertThat(resultado).isNotNull();
             assertThat(resultado.getId()).isEqualTo(PROF_ID);
+            // Senha gerada pelo sistema: o usuário nasce obrigado a trocá-la no primeiro acesso
+            verify(usuarioRepository).save(argThat(Usuario::isDeveTrocarSenha));
             verify(profissionalRepository).save(any(Profissional.class));
             verify(emailNotificacaoService).enviarCredenciaisClinico(
                     eq("novo@clinica.com"), eq("Dr. Novo"), any(), any(),

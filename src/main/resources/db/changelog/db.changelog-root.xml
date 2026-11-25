@@ -183,4 +183,7 @@
 
     <!-- Cargo do administrador: uma lista só (CargoAdmin) em todas as telas; converte os valores antigos -->
     <include file="db/changelog/08-2026/070-padronizar-cargo-admin.xml"/>
+
+    <!-- Primeiro acesso: a senha enviada por e-mail no cadastro so serve para escolher a definitiva -->
+    <include file="db/changelog/08-2026/071-usuario-deve-trocar-senha.xml"/>
 </databaseChangeLog>
